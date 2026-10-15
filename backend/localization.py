@@ -3,6 +3,8 @@ import re
 
 
 _MESSAGES = {
+    "Choose either automatic or manual test ID": "Выберите автоматический или ручной ID тест-кейса",
+    "Automatic test ID range exhausted": "Диапазон автоматических ID тест-кейсов исчерпан",
     "Folder not found": "Папка не найдена",
     "Folder ID already exists": "Идентификатор папки уже существует",
     "Folder has {children} sub-folders and {tests} tests — move or delete them first":

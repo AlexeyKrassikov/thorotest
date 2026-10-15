@@ -49,6 +49,7 @@ class TestOut(BaseModel):
 
 class TestCreate(BaseModel):
     id: Optional[str] = None
+    auto_id: bool = False
     title: str
     folder_id: Optional[str] = None
     type: str = "manual"

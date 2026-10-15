@@ -5,8 +5,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import or_, cast, String
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from ..csv_safe import neutralize
+from ..test_numbering import next_test_id
 from ..db import get_db
 from .. import models
 from ..schemas import TestOut, TestCreate, TestUpdate, BulkAction, DefectOut, CommentOut, CommentCreate, TestStepOut, TestStepIn
@@ -131,14 +133,30 @@ def get_test(test_id: str, db: Session = Depends(get_db), _: models.User = Depen
 
 @router.post("/tests", response_model=TestOut, status_code=201)
 def create_test(payload: TestCreate, db: Session = Depends(get_db), current_user: models.User = WRITE_ROLES):
-    test_id = payload.id or f"TC-{uuid.uuid4().hex[:8].upper()}"
-    if db.query(models.Test).filter(models.Test.id == test_id).first():
-        raise HTTPException(status_code=409, detail="Test ID already exists")
-    data = payload.model_dump()
-    data["id"] = test_id
+    if payload.auto_id and payload.id:
+        raise HTTPException(422, 'Choose either automatic or manual test ID')
+    data = payload.model_dump(exclude={"auto_id"})
     data["custom_fields"] = validate_and_merge(db, "test", data.get("custom_fields"))
-    t = models.Test(**data)
-    db.add(t)
+    for attempt in range(5):
+        test_id = next_test_id(db) if payload.auto_id else payload.id or f"TC-{uuid.uuid4().hex[:8].upper()}"
+        data["id"] = test_id
+        if not payload.auto_id:
+            if db.get(models.Test, test_id):
+                raise HTTPException(409, 'Test ID already exists')
+            t = models.Test(**data)
+            db.add(t)
+            break
+        try:
+            with db.begin_nested():
+                t = models.Test(**data)
+                db.add(t)
+                db.flush()
+            break
+        except IntegrityError:
+            if not db.get(models.Test, test_id):
+                raise
+            if not payload.auto_id or attempt == 4:
+                raise HTTPException(409, 'Test ID already exists')
     log_activity(db, actor_name(current_user), "created", test_id, t.title)
     log_create(db, "test", test_id, current_user)
     db.commit()

@@ -143,7 +143,7 @@ a { color: inherit; text-decoration: none; }
   z-index: 1;
 }
 
-.sidebar-brand {
+.sidebar-brand.as-button {
   padding: 14px 14px 12px;
   display: flex;
   align-items: center;

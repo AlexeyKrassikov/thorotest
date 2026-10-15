@@ -1,5 +1,6 @@
 window.TH_LOCALES.ru.cases = {
   library: {
+    autoId: "ID автоматически", titleRequired: "Укажите название.",
     folders: "Папки", testsCount: "Тестов: {{count}}", allTests: "Все тесты",
     syncedFromGit: "tests/ синхронизируется с git", upToDate: "АКТУАЛЬНО", pushed: "Отправлено",
     search: "Поиск тестов…", status: "Статус", allStatuses: "Все статусы",

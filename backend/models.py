@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, Integer, Boolean, ForeignKey, JSON, Table, UniqueConstraint, Index
+from sqlalchemy import Column, String, Text, Integer, BigInteger, Boolean, ForeignKey, JSON, Table, UniqueConstraint, Index
 from sqlalchemy.orm import relationship, backref
 from .db import Base
 
@@ -51,6 +51,12 @@ class Folder(Base):
     children = relationship("Folder", backref=backref("parent", remote_side="Folder.id"))
     tests = relationship("Test", back_populates="folder_rel", foreign_keys="Test.folder_id")
     project_rel = relationship("Project", back_populates="folders")
+
+
+class TestIdCounter(Base):
+    __tablename__ = "test_id_counter"
+    id = Column(Integer, primary_key=True)
+    last_value = Column(BigInteger, nullable=False, default=0)
 
 
 class Test(Base):

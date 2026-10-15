@@ -560,6 +560,7 @@ function Library({ onNav, onOpenTest, currentUser }) {
 
 function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
   const { t } = useI18n();
+  const [autoId, setAutoId] = useState(false);
   const [form, setForm] = useState({
     id: "", title: "", folder_id: defaultFolderId || "", type: "manual", priority: "med", owner: "", tags: ""
   });
@@ -572,12 +573,14 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const submit = async () => {
-    if (!form.id.trim() || !form.title.trim()) { setErr(t("cases.library.idRequired")); return; }
+    if (!form.title.trim()) { setErr(t("cases.library.titleRequired")); return; }
+    if (!autoId && !form.id.trim()) { setErr(t("cases.library.idRequired")); return; }
     setSaving(true);
     setErr(null);
     try {
       const payload = {
-        id: form.id.trim(),
+        id: autoId ? null : form.id.trim(),
+        auto_id: autoId,
         title: form.title.trim(),
         folder_id: form.folder_id || null,
         type: form.type,
@@ -607,15 +610,19 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
 
   return (
     <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...modal.overlayProps}>
-      <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:480, maxHeight:"80vh", overflowY:"auto"}} {...modal.dialogProps}>
+      <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:480, maxWidth:"calc(100vw - 32px)", maxHeight:"80vh", overflowY:"auto"}} {...modal.dialogProps}>
         <div style={{display:"flex", alignItems:"center", marginBottom:20}}>
           <h2 id="new-test-title" style={{fontSize:15, fontWeight:600, margin:0}}>{t("cases.library.suggestTitle")}</h2>
           <button className="btn ghost icon sm" style={{marginLeft:"auto"}} onClick={onClose} aria-label={t("cases.library.close")}><Icon name="x" /></button>
         </div>
 
         <div style={{display:"flex", flexDirection:"column", gap:14}}>
-          <FormField label={t("cases.library.idRequiredLabel")} hint={t("cases.library.egId")}>
-            <input className="input" value={form.id} onChange={e => setF("id", e.target.value)} placeholder="TC-2400" />
+          <label style={{display:"flex", alignItems:"center", gap:8, fontSize:13}}>
+            <input type="checkbox" checked={autoId} disabled={saving} onChange={e => { setAutoId(e.target.checked); setErr(null); }} />
+            {t("cases.library.autoId")}
+          </label>
+          <FormField label={t(autoId ? "cases.library.id" : "cases.library.idRequiredLabel")} hint={autoId ? null : t("cases.library.egId")}>
+            <input id="new-test-id" className="input" value={autoId ? "" : form.id} disabled={autoId || saving} onChange={e => setF("id", e.target.value)} placeholder={autoId ? "TC-…" : "TC-2400"} />
           </FormField>
           <FormField label={t("cases.library.titleRequiredLabel")}>
             <input className="input" value={form.title} onChange={e => setF("title", e.target.value)} placeholder={t("cases.library.titlePlaceholder")} />
@@ -654,7 +661,7 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
 
         <div style={{display:"flex", gap:8, marginTop:20, justifyContent:"flex-end"}}>
           <button className="btn" onClick={onClose}>{t("cases.library.cancel")}</button>
-          <button className="btn accent" onClick={submit} disabled={saving || !form.id.trim() || !form.title.trim()}>
+          <button className="btn accent" onClick={submit} disabled={saving || (!autoId && !form.id.trim()) || !form.title.trim()}>
             {saving ? t("cases.library.creating") : t("cases.library.createTest")}
           </button>
         </div>

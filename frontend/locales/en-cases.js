@@ -1,5 +1,6 @@
 window.TH_LOCALES.en.cases = {
   library: {
+    autoId: "Automatic ID", titleRequired: "Title is required.",
     folders: "Folders", testsCount: "{{count}} tests", allTests: "All tests",
     syncedFromGit: "tests/ is synced from git", upToDate: "UP TO DATE", pushed: "Pushed",
     search: "Search tests…", status: "Status", allStatuses: "All statuses",

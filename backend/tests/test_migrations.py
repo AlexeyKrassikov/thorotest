@@ -67,3 +67,25 @@ def test_migration_preserves_application_loggers(tmp_engine):
     runtime_logger.disabled = False
     _ensure_schema()
     assert runtime_logger.disabled is False
+
+
+def test_counter_upgrade_preserves_existing_case_ids(tmp_engine):
+    from sqlalchemy import text
+    from sqlalchemy.orm import Session
+    from backend.main import _ensure_schema
+    from backend.models import Test as Case
+    from backend.test_numbering import next_test_id
+
+    _ensure_schema()
+    with tmp_engine.begin() as connection:
+        connection.execute(text('DROP TABLE test_id_counter'))
+        connection.execute(text("UPDATE alembic_version SET version_num = 'c1f6b2a34d70'"))
+        connection.execute(text("INSERT INTO tests (id, title) VALUES ('TC-81', 'Existing case')"))
+    _ensure_schema()
+    with Session(tmp_engine) as session:
+        assert session.get(Case, 'TC-81').title == 'Existing case'
+        assert next_test_id(session) == 'TC-82'
+        session.commit()
+    _ensure_schema()
+    with Session(tmp_engine) as session:
+        assert next_test_id(session) == 'TC-83'
