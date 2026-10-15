@@ -36,6 +36,7 @@ window.TH_I18N = (() => {
       lang = DEFAULT_LANG;
     }
     _lang = lang;
+    document.documentElement.lang = lang;
     localStorage.setItem(STORAGE_KEY, lang);
     _listeners.forEach(fn => fn(lang));
   }

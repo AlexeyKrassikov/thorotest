@@ -288,6 +288,7 @@ async def public_config():
     return {
         "demo_mode": DEMO_MODE,
         "demo_accounts": DEMO_ACCOUNTS if DEMO_MODE else [],
+        "oauth_providers": {"mattermost": oauth.mattermost_config() is not None},
     }
 
 

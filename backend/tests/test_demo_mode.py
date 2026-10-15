@@ -59,10 +59,11 @@ def test_demo_mode_env_parsing(monkeypatch):
 # ── /api/config — public UI bootstrap flags ─────────────────────
 
 def test_config_demo_mode_off_by_default(client, monkeypatch):
+    monkeypatch.delenv("MATTERMOST_URL", raising=False)
     monkeypatch.setattr(ws_manager, "DEMO_MODE", False)
     r = client.get("/api/config")
     assert r.status_code == 200
-    assert r.json() == {"demo_mode": False, "demo_accounts": []}
+    assert r.json() == {"demo_mode": False, "demo_accounts": [], "oauth_providers": {"mattermost": False}}
 
 
 def test_config_demo_mode_on(client, monkeypatch):
@@ -100,4 +101,5 @@ def test_config_is_public_and_minimal(db, monkeypatch):
         r = c.get("/api/config")
     app.dependency_overrides.clear()
     assert r.status_code == 200
-    assert set(r.json().keys()) == {"demo_mode", "demo_accounts"}
+    assert set(r.json().keys()) == {"demo_mode", "demo_accounts", "oauth_providers"}
+    assert set(r.json()["oauth_providers"]) == {"mattermost"}

@@ -1,7 +1,7 @@
 // ThoroTest — login page
 
 function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
-  const { t } = useI18n();
+  const { t, lang, setLanguage } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -15,11 +15,15 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
   // Demo instances (DEMO_MODE) advertise seeded throwaway logins so visitors
   // can sign in; empty on a normal deploy.
   const [demoAccounts, setDemoAccounts] = useState([]);
+  const [mattermostEnabled, setMattermostEnabled] = useState(false);
 
   useEffect(() => {
     fetch("/api/config")
       .then(r => (r.ok ? r.json() : {}))
-      .then(c => setDemoAccounts(Array.isArray(c.demo_accounts) ? c.demo_accounts : []))
+      .then(c => {
+        setDemoAccounts(Array.isArray(c.demo_accounts) ? c.demo_accounts : []);
+        setMattermostEnabled(c.oauth_providers?.mattermost === true);
+      })
       .catch(() => {});
   }, []);
 
@@ -81,26 +85,32 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
           <div className="brand-mark" style={{ width: 36, height: 36, fontSize: 18 }}>T</div>
           <div>
             <div className="brand-name" style={{ fontSize: 18, fontWeight: 700 }}>ThoroTest</div>
-            <div className="brand-workspace" style={{ fontSize: 11 }}>Test management</div>
+            <div className="brand-workspace" style={{ fontSize: 11 }}>{t("login.management")}</div>
           </div>
         </div>
 
         <h2 className="login-title">{t("login.title")}</h2>
+        <select className="login-input" aria-label={t("settings.profileSection.language")} value={lang}
+          onChange={e => setLanguage(e.target.value)} style={{ marginBottom: 12 }}>
+          {window.TH_I18N.getSupportedLanguages().map(code => (
+            <option key={code} value={code}>{t(`languages.${code}`)}</option>
+          ))}
+        </select>
 
         {oauthError && (
           <div className="login-error" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <span>
               {oauthError.kind === "cancelled"
-                ? `${oauthError.provider ? oauthError.provider.charAt(0).toUpperCase() + oauthError.provider.slice(1) : "OAuth"} sign-in was cancelled.`
+                ? t("login.cancelled", { provider: oauthError.provider || "OAuth" })
                 : oauthError.kind === "no_account"
-                ? "No ThoroTest account is linked to that identity. Ask an administrator to create one for you."
-                : "Sign-in failed, please try again."}
+                ? t("login.noAccount")
+                : t("login.failed")}
             </span>
             <button
               type="button"
               onClick={onDismissOAuthError}
               style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", padding: "0 0 0 8px", fontSize: 16, lineHeight: 1 }}
-              aria-label="Dismiss"
+              aria-label={t("login.dismiss")}
             >&#x2715;</button>
           </div>
         )}
@@ -108,7 +118,7 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
         {mode === "forgot" && (
           <form onSubmit={handleForgot} className="login-form">
             <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 12px" }}>
-              Enter your account email and we'll send you a password reset link.
+              {t("login.resetHint")}
             </p>
             <div className="login-field">
               <label className="login-label">{t("login.email")}</label>
@@ -117,11 +127,11 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
             </div>
             {error && <div className="login-error">{error}</div>}
             <button type="submit" className="btn primary login-btn" disabled={loading}>
-              {loading ? "Sending…" : "Send reset link"}
+              {loading ? t("login.sending") : t("login.sendReset")}
             </button>
             <button type="button" className="btn login-btn" style={{ marginTop: 8, width: "100%" }}
                     onClick={() => { setMode("login"); setError(null); }}>
-              Back to sign in
+              {t("login.backToLogin")}
             </button>
           </form>
         )}
@@ -129,11 +139,11 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
         {mode === "forgot-sent" && (
           <div className="login-form">
             <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
-              If that email exists, a reset link has been sent. Check your inbox.
+              {t("login.resetSent")}
             </p>
             <button type="button" className="btn primary login-btn" style={{ width: "100%" }}
                     onClick={() => { setMode("login"); setError(null); }}>
-              Back to sign in
+              {t("login.backToLogin")}
             </button>
           </div>
         )}
@@ -141,16 +151,16 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
         {mode === "reset" && (
           <form onSubmit={handleReset} className="login-form">
             <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 12px" }}>
-              Choose a new password for your account.
+              {t("login.newPasswordHint")}
             </p>
             <div className="login-field">
-              <label className="login-label">New password</label>
+              <label className="login-label">{t("login.newPassword")}</label>
               <input className="login-input" type="password" value={newPassword}
                      onChange={e => setNewPassword(e.target.value)} minLength={12} required autoFocus />
             </div>
             {error && <div className="login-error">{error}</div>}
             <button type="submit" className="btn primary login-btn" disabled={loading}>
-              {loading ? "Saving…" : "Set new password"}
+              {loading ? t("common.saving") : t("login.setPassword")}
             </button>
           </form>
         )}
@@ -159,7 +169,7 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
         <form onSubmit={handleSubmit} className="login-form">
           {resetDone && (
             <div style={{ fontSize: 13, color: "var(--pass, #4ade80)", marginBottom: 12 }}>
-              Password updated — sign in with your new password.
+              {t("login.passwordUpdated")}
             </div>
           )}
           <div className="login-field">
@@ -192,22 +202,22 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
           <button type="button" className="login-forgot-link"
                   style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 12, marginTop: 10, padding: 0 }}
                   onClick={() => { setMode("forgot"); setError(null); }}>
-            Forgot password?
+            {t("login.forgot")}
           </button>
         </form>
         )}
 
         {mode === "login" && demoAccounts.length > 0 && (
-          <div className="demo-accounts" role="group" aria-label="Demo accounts" style={{
+          <div className="demo-accounts" role="group" aria-label={t("login.demoAccounts")} style={{
             marginTop: 16, padding: 12, borderRadius: 10,
             border: "1px solid var(--warn, #f59e0b)",
             background: "color-mix(in srgb, var(--warn, #f59e0b) 8%, transparent)",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
               <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--warn, #f59e0b)" }}>
-                Demo accounts
+                {t("login.demoAccounts")}
               </span>
-              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>— click to sign in</span>
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("login.demoClick")}</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {demoAccounts.map(acct => (
@@ -215,7 +225,7 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
                   key={acct.email}
                   type="button"
                   onClick={() => fillDemo(acct)}
-                  title={`Fill ${acct.email}`}
+                  title={t("login.fill", { email: acct.email })}
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
                     padding: "7px 10px", borderRadius: 8, cursor: "pointer",
@@ -247,9 +257,19 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
 
         {mode === "login" && (<React.Fragment>
         <div className="login-oauth-buttons">
+          {mattermostEnabled && (
+            <button type="button" className="btn login-oauth-btn"
+              style={{ width: "100%", marginTop: 12 }} disabled={oauthLoading !== null}
+              onClick={() => {
+                setOauthLoading("mattermost");
+                window.location.href = "/api/auth/oauth/mattermost/redirect";
+              }}>
+              {oauthLoading === "mattermost" ? t("login.signingIn") : t("login.mattermost")}
+            </button>
+          )}
           <div className="login-divider" style={{ display: "flex", alignItems: "center", gap: 8, margin: "16px 0 12px" }}>
             <div style={{ flex: 1, height: 1, background: "var(--border, #3f3f5a)" }} />
-            <span style={{ fontSize: 12, color: "var(--text-muted)", whiteSpace: "nowrap" }}>or continue with</span>
+            <span style={{ fontSize: 12, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t("login.orContinue")}</span>
             <div style={{ flex: 1, height: 1, background: "var(--border, #3f3f5a)" }} />
           </div>
           <button
@@ -266,7 +286,7 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
                 <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
               </svg>
             )}
-            Continue with GitHub
+            {t("login.github")}
           </button>
           <button
             type="button"
@@ -285,7 +305,7 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
                 <path fill="#EA4335" d="M8 3.2a4.34 4.34 0 013.07 1.2l2.3-2.3A7.7 7.7 0 008 0 8 8 0 00.96 4.4l2.61 2.06A4.77 4.77 0 018 3.2z"/>
               </svg>
             )}
-            Continue with Google
+            {t("login.google")}
           </button>
         </div>
 
@@ -298,6 +318,7 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
 window.LoginPage = LoginPage;
 
 function OAuthConfirmScreen({ pendingToken, onLinked, onCancel }) {
+  const { t } = useI18n();
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -322,18 +343,18 @@ function OAuthConfirmScreen({ pendingToken, onLinked, onCancel }) {
           <div className="brand-mark" style={{ width: 36, height: 36, fontSize: 18 }}>T</div>
           <div>
             <div className="brand-name" style={{ fontSize: 18, fontWeight: 700 }}>ThoroTest</div>
-            <div className="brand-workspace" style={{ fontSize: 11 }}>Test management</div>
+            <div className="brand-workspace" style={{ fontSize: 11 }}>{t("login.management")}</div>
           </div>
         </div>
 
-        <h2 className="login-title">An account with this email exists.</h2>
+        <h2 className="login-title">{t("login.existingAccount")}</h2>
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-          Enter your existing account password to link this sign-in.
+          {t("login.linkHint")}
         </p>
 
         <form onSubmit={submit} className="login-form">
           <div className="login-field">
-            <label className="login-label">Password</label>
+            <label className="login-label">{t("login.password")}</label>
             <input
               className="login-input"
               type="password"
@@ -347,7 +368,7 @@ function OAuthConfirmScreen({ pendingToken, onLinked, onCancel }) {
           {error && <div className="login-error">{error}</div>}
 
           <button type="submit" className="btn primary login-btn" disabled={loading}>
-            {loading ? "Linking…" : "Link account"}
+            {loading ? t("login.linking") : t("login.link")}
           </button>
         </form>
 
@@ -357,7 +378,7 @@ function OAuthConfirmScreen({ pendingToken, onLinked, onCancel }) {
           style={{ width: "100%", marginTop: 8 }}
           onClick={onCancel}
         >
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </div>
@@ -367,6 +388,7 @@ function OAuthConfirmScreen({ pendingToken, onLinked, onCancel }) {
 window.OAuthConfirmScreen = OAuthConfirmScreen;
 
 function TwoFAStep({ partialToken, onVerified, onBack }) {
+  const { t } = useI18n();
   const [code, setCode] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -392,7 +414,7 @@ function TwoFAStep({ partialToken, onVerified, onBack }) {
           });
         }, 1000);
       } else {
-        setError(err.message || "Invalid code");
+        setError(err.message || t("login.invalidCode"));
       }
       setLoading(false);
     }
@@ -405,18 +427,18 @@ function TwoFAStep({ partialToken, onVerified, onBack }) {
           <div className="brand-mark" style={{ width: 36, height: 36, fontSize: 18 }}>T</div>
           <div>
             <div className="brand-name" style={{ fontSize: 18, fontWeight: 700 }}>ThoroTest</div>
-            <div className="brand-workspace" style={{ fontSize: 11 }}>Test management</div>
+            <div className="brand-workspace" style={{ fontSize: 11 }}>{t("login.management")}</div>
           </div>
         </div>
 
-        <h2 className="login-title">Two-factor authentication</h2>
+        <h2 className="login-title">{t("login.twoFactor")}</h2>
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-          Enter the 6-digit code from your authenticator app, or a recovery code.
+          {t("login.codeHint")}
         </p>
 
         <form onSubmit={submit} className="login-form">
           <div className="login-field">
-            <label className="login-label">Code</label>
+            <label className="login-label">{t("login.code")}</label>
             <input
               className="login-input"
               type="text"
@@ -425,17 +447,17 @@ function TwoFAStep({ partialToken, onVerified, onBack }) {
               required
               autoFocus
               autoComplete="one-time-code"
-              placeholder="000000 or xxxx-xxxx"
+              placeholder={t("login.codePlaceholder")}
             />
           </div>
 
           {error && <div className="login-error">{error}</div>}
           {retryAfter > 0 && (
-            <div className="login-error">Try again in {retryAfter}s</div>
+            <div className="login-error">{t("login.retry", { seconds: retryAfter })}</div>
           )}
 
           <button type="submit" className="btn primary login-btn" disabled={loading || retryAfter > 0}>
-            {loading ? "Verifying…" : "Verify"}
+            {loading ? t("login.verifying") : t("login.verify")}
           </button>
         </form>
 
@@ -445,7 +467,7 @@ function TwoFAStep({ partialToken, onVerified, onBack }) {
           style={{ width: "100%", marginTop: 8 }}
           onClick={onBack}
         >
-          Back
+          {t("login.back")}
         </button>
       </div>
     </div>

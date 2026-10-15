@@ -15,7 +15,7 @@ import os
 import re
 import secrets
 from datetime import datetime, timezone, timedelta
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -65,6 +65,27 @@ GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 BASE_URL = os.getenv("TESTHUB_BASE_URL", "http://localhost:8000")
+
+
+def mattermost_config():
+    url = os.getenv("MATTERMOST_URL", "").strip().rstrip("/")
+    client_id = os.getenv("MATTERMOST_CLIENT_ID", "").strip()
+    secret = os.getenv("MATTERMOST_CLIENT_SECRET", "")
+    try:
+        parsed = urlsplit(url)
+        parsed.port  # Validate malformed ports before enabling the provider.
+    except ValueError:
+        return None
+    if not (url and client_id and secret and parsed.hostname):
+        return None
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        return None
+    if parsed.scheme != "https" and not (
+        parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1", "::1")
+        and os.getenv("ENVIRONMENT") != "production"
+    ):
+        return None
+    return url, client_id, secret
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +176,8 @@ def upsert_oauth_user(
     verified: bool,
     display_name: str | None,
     ip: str | None,
+    *,
+    allow_provisioning: bool = False,
 ) -> dict:
     """
     Shared OAuth user resolution logic for all providers.
@@ -219,7 +242,7 @@ def upsert_oauth_user(
     # Honours the same ALLOW_OPEN_REGISTRATION gate as local registration: on a
     # closed instance, OAuth signs existing users in but never creates accounts,
     # so a public deployment can't be populated by anyone with a GitHub account.
-    if not _registration_open():
+    if not _registration_open() and not (provider == "mattermost" and allow_provisioning):
         raise HTTPException(
             status_code=403,
             detail="No ThoroTest account is linked to this identity, and self-registration is disabled.",
@@ -262,6 +285,91 @@ def upsert_oauth_user(
         ip_address=ip,
     )
     return issue_session_or_2fa(user, ip)
+
+
+# ---------------------------------------------------------------------------
+# Mattermost uses the configured trusted server, never a request-supplied URL.
+# Bind state to the initiating browser as well as the single-use DB nonce.
+# ---------------------------------------------------------------------------
+
+_MM_COOKIE = "thorotest_mm_state"
+_MM_PATH = "/api/auth/oauth/mattermost"
+
+
+@router.get("/auth/oauth/mattermost/redirect")
+async def mattermost_redirect(db: Session = Depends(get_db)):
+    config = mattermost_config()
+    if not config:
+        raise HTTPException(503, "Mattermost login is not configured")
+    url, client_id, _ = config
+    state = _new_state(db, "mattermost")
+    params = urlencode({
+        "client_id": client_id, "response_type": "code", "state": state,
+        "redirect_uri": f"{BASE_URL.rstrip('/')}{_MM_PATH}/callback",
+    })
+    response = RedirectResponse(f"{url}/oauth/authorize?{params}")
+    response.set_cookie(_MM_COOKIE, state, max_age=600, httponly=True,
+                        secure=BASE_URL.startswith("https://"), samesite="lax", path=_MM_PATH)
+    return response
+
+
+@router.get("/auth/oauth/mattermost/callback")
+async def mattermost_callback(request: Request, db: Session = Depends(get_db),
+                              code: str | None = None, state: str | None = None,
+                              error: str | None = None):
+    def finish(fragment):
+        response = RedirectResponse(f"{BASE_URL.rstrip('/')}/#{fragment}")
+        response.delete_cookie(_MM_COOKIE, path=_MM_PATH)
+        return response
+
+    failed = "oauth-error=failed&provider=mattermost"
+    cookie = request.cookies.get(_MM_COOKIE, "")
+    if not state or not cookie or not secrets.compare_digest(state.encode(), cookie.encode()):
+        return finish(failed)
+    try:
+        _consume_state(db, state, "mattermost")
+    except HTTPException:
+        return finish(failed)
+    if error:
+        return finish("oauth-error=cancelled&provider=mattermost")
+    config = mattermost_config()
+    if not config or not code:
+        return finish(failed)
+    url, client_id, secret = config
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
+            token = await client.post(f"{url}/oauth/access_token", data={
+                "grant_type": "authorization_code", "client_id": client_id,
+                "client_secret": secret, "code": code,
+                "redirect_uri": f"{BASE_URL.rstrip('/')}{_MM_PATH}/callback",
+            })
+            token.raise_for_status()
+            access_token = token.json().get("access_token")
+            if not isinstance(access_token, str) or not access_token:
+                return finish(failed)
+            profile = await client.get(f"{url}/api/v4/users/me",
+                                       headers={"Authorization": f"Bearer {access_token}"})
+            profile.raise_for_status()
+            user = profile.json()
+        if not isinstance(user.get("id"), str) or not user["id"] or user.get("delete_at", 0):
+            return finish(failed)
+        result = upsert_oauth_user(
+            db, provider="mattermost", oauth_id=user["id"], email=user.get("email"),
+            verified=user.get("email_verified") is True,
+            display_name=user.get("username"),
+            ip=request.client.host if request.client else None, allow_provisioning=True,
+        )
+    except HTTPException:
+        return finish(failed)
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError):
+        # Never log token responses, authorization codes, or provider secrets.
+        logger.warning("Mattermost OAuth exchange or profile validation failed")
+        return finish(failed)
+    if result["status"] == "2fa_required":
+        return finish(f"oauth-2fa={result['partial_token']}")
+    if result["status"] == "ok":
+        return finish(f"token={result['token']}")
+    return finish(f"oauth-confirm={result['pending_token']}")
 
 
 # ---------------------------------------------------------------------------
