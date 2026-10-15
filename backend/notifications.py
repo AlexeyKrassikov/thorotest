@@ -13,6 +13,7 @@ from . import models
 from .localization import notification_entity_label, notification_status, translate
 from .webhook_utils import sign_payload
 from .net_guard import assert_public_http_url, UnsafeURLError
+from .project_access import can_read_link
 
 logger = logging.getLogger("thorotest.notifications")
 
@@ -24,14 +25,17 @@ class NotificationManager:
     def __init__(self):
         self.connections: Dict[int, List[WebSocket]] = {}  # user_id → sockets
         self.authorizers = {}
+        self.payload_authorizers = {}
 
-    async def connect(self, user_id: int, websocket: WebSocket, authorize=None):
+    async def connect(self, user_id: int, websocket: WebSocket, authorize=None, authorize_payload=None):
         await websocket.accept()
         self.connections.setdefault(user_id, []).append(websocket)
         self.authorizers[websocket] = authorize
+        self.payload_authorizers[websocket] = authorize_payload
 
     def disconnect(self, user_id: int, websocket: WebSocket):
         self.authorizers.pop(websocket, None)
+        self.payload_authorizers.pop(websocket, None)
         conns = self.connections.get(user_id, [])
         if websocket in conns:
             conns.remove(websocket)
@@ -45,6 +49,9 @@ class NotificationManager:
                 if authorize and not authorize():
                     await ws.close(code=1008)
                     dead.append(ws)
+                    continue
+                check = self.payload_authorizers.get(ws)
+                if check and not check(payload):
                     continue
                 await ws.send_json(payload)
             except Exception:
@@ -107,6 +114,8 @@ async def _notify_run_events(run_id: str):
         configs = db.query(models.NotificationConfig).filter_by(notify_run_complete=True).all()
         for cfg in configs:
             user = db.query(models.User).filter_by(id=cfg.user_id).first()
+            if not can_read_link(db, user, f"#/runs/{run_id}"):
+                continue
             title = translate(
                 "notification.run_complete", user.language if user else "en",
                 name=run.name,
@@ -164,6 +173,8 @@ async def _notify_run_events(run_id: str):
                     test = db.query(models.Test).filter_by(id=case.test_id).first()
                     test_title = test.title if test else case.test_id
                     user = db.query(models.User).filter_by(id=cfg.user_id).first()
+                    if not can_read_link(db, user, f"#/runs/{run_id}"):
+                        continue
                     notif = models.Notification(
                         user_id=cfg.user_id,
                         event_type="consecutive_fail",
@@ -254,6 +265,8 @@ async def _notify_comment_event(test_id: str, commenter_username: str):
         configs = db.query(models.NotificationConfig).filter_by(notify_comment=True).all()
         for cfg in configs:
             user = db.query(models.User).filter_by(id=cfg.user_id).first()
+            if not can_read_link(db, user, f"#/tests/{test_id}"):
+                continue
             notif = models.Notification(
                 user_id=cfg.user_id,
                 event_type="comment",
@@ -310,6 +323,8 @@ def _deliver_to_user(db, user: models.User, event_type: str, title: str, link: s
     hasn't opted out via `config_flag`) send email through the system SMTP relay.
     Assumes it runs inside a background task with its own session that the caller
     commits. Email is best-effort and never blocks the event loop."""
+    if not can_read_link(db, user, link):
+        return
     cfg = db.query(models.NotificationConfig).filter_by(user_id=user.id).first()
     # Default-on: absence of a config row means the user keeps the defaults.
     if cfg is not None and not getattr(cfg, config_flag, True):

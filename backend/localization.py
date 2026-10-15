@@ -3,6 +3,19 @@ import re
 
 
 _MESSAGES = {
+    "Select a project": "Выберите проект",
+    "Insufficient project permissions": "Недостаточно прав в проекте",
+    "Folder must belong to the selected project": "Папка должна принадлежать выбранному проекту",
+    "Cannot move folders between projects": "Нельзя перемещать папки между проектами",
+    "Cannot move tests between projects": "Нельзя перемещать тесты между проектами",
+    "Folder hierarchy cannot contain cycles": "Иерархия папок не может содержать циклы",
+    "Project is not empty": "Проект не пуст",
+    "Keep at least one project owner": "В проекте должен остаться хотя бы один владелец",
+    "Title cannot be empty": "Название не может быть пустым",
+    "Invalid step IDs": "Недопустимые идентификаторы шагов",
+    "Step action cannot be empty": "Действие шага не может быть пустым",
+    "Test changed elsewhere; reload before saving": "Кейс изменён другим пользователем; загрузите последнюю версию перед сохранением",
+    "Invalid appearance settings": "Недопустимые настройки интерфейса",
     "Account access is blocked": "Доступ к аккаунту заблокирован",
     "Account is not approved": "Аккаунт ещё не одобрен",
     "Choose a role before approving the account": "Выберите роль перед одобрением аккаунта",

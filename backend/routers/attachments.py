@@ -11,6 +11,7 @@ from ..db import get_db
 from .. import models
 from ..schemas import AttachmentOut
 from ..auth_utils import get_current_user, require_role
+from ..project_access import require_attachment_entity
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "50"))
@@ -41,7 +42,7 @@ _NEVER_INLINE_MIME = {"text/html", "application/xhtml+xml", "image/svg+xml"}
 
 router = APIRouter(tags=["attachments"])
 
-WRITE_ROLES = require_role("admin", "manager", "tester")
+WRITE_ROLES = Depends(get_current_user)
 
 
 def _safe_component(value: str) -> str:
@@ -81,6 +82,7 @@ async def upload_attachment(
         raise HTTPException(status_code=422, detail="Invalid entity_type")
     # entity_id and the stored filename must not be able to walk out of UPLOAD_DIR.
     safe_entity_id = _safe_component(str(entity_id))
+    require_attachment_entity(db, _, entity_type, entity_id, write=True)
 
     ext = os.path.splitext(os.path.basename(file.filename or ""))[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -162,6 +164,7 @@ def delete_attachment(att_id: int, db: Session = Depends(get_db), _: models.User
     att = db.query(models.Attachment).filter(models.Attachment.id == att_id).first()
     if not att:
         raise HTTPException(status_code=404, detail="Attachment not found")
+    require_attachment_entity(db, _, att.entity_type, att.entity_id, write=True)
     abs_path = os.path.join(UPLOAD_DIR, att.storage_path)
     if os.path.exists(abs_path):
         os.remove(abs_path)

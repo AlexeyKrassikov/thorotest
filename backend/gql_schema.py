@@ -265,6 +265,7 @@ class UpdateTestStatusInput:
 class CreateTestInput:
     id: str
     title: str
+    project_id: Optional[str] = None
     folder_id: Optional[str] = None
     type: str = "manual"
     status: str = "pending"
@@ -279,28 +280,26 @@ class CreateTestInput:
 class Mutation:
     @strawberry.mutation
     def update_test_status(self, info: strawberry.types.Info, input: UpdateTestStatusInput) -> Optional[TestGQL]:
-        _require_write(info)
+        user = _require_user(info)
         db: Session = info.context["db"]
-        t = db.query(models.Test).filter(models.Test.id == input.id).first()
-        if t:
-            t.status = input.status
-            db.commit()
-            db.refresh(t)
+        from .routers.tests import update_test
+        from .schemas import TestUpdate
+        t = update_test(input.id, TestUpdate(status=input.status), db, user)
         return _test_to_gql(t) if t else None
 
     @strawberry.mutation
     def create_test(self, info: strawberry.types.Info, input: CreateTestInput) -> TestGQL:
-        _require_write(info)
+        user = _require_user(info)
         db: Session = info.context["db"]
-        t = models.Test(
+        from .routers.tests import create_test
+        from .schemas import TestCreate
+        t = create_test(TestCreate(
             id=input.id, title=input.title, folder_id=input.folder_id,
+            project_id=input.project_id,
             type=input.type, status=input.status, priority=input.priority,
             owner=input.owner, tags=input.tags or [], auto=input.auto,
             runner=input.runner,
-        )
-        db.add(t)
-        db.commit()
-        db.refresh(t)
+        ), db, user)
         return _test_to_gql(t)
 
 
@@ -313,6 +312,7 @@ async def get_context(request: Request, db: Session = Depends(get_db)):
     """
     auth = request.headers.get("Authorization", "")
     token = auth[7:] if auth.startswith("Bearer ") else ""
+    db.info["active_project"] = request.headers.get("x-project-id") or None
     return {"db": db, "user": user_from_bearer_token(token, db)}
 
 

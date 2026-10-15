@@ -24,6 +24,9 @@ def get_record_history(
 ):
     if entity_type not in _ALLOWED:
         raise HTTPException(status_code=404, detail="Unknown entity type")
+    if entity_type == "test" and _.role != "admin":
+        from ..project_access import require_test
+        require_test(db, _, entity_id)
     rows = (
         db.query(models.RecordHistory)
         .filter(

@@ -151,7 +151,10 @@ def test_upload_rejects_traversal_entity_id(client, tmp_path, monkeypatch):
     assert r.status_code == 422
 
 
-def test_upload_neutralizes_traversal_filename(client, tmp_path, monkeypatch):
+def test_upload_neutralizes_traversal_filename(client, db, tmp_path, monkeypatch):
+    from backend import models
+    db.add(models.Test(id="TC-1", title="Upload target"))
+    db.commit()
     import backend.routers.attachments as att
     monkeypatch.setattr(att, "UPLOAD_DIR", str(tmp_path))
     r = client.post("/api/attachments",

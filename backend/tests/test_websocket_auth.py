@@ -20,6 +20,9 @@ def ws_user(db):
     db.add(user)
     db.add(models.Run(id="R-WS", name="Secret run", status="running",
                       total=1, progress=0, passed=0, failed=0, blocked=0))
+    db.add(models.Test(id="TC-WS", title="Socket case", project_id="test-project"))
+    db.flush()
+    db.add(models.RunCase(run_id="R-WS", test_id="TC-WS"))
     db.commit()
     db.refresh(user)
     return user

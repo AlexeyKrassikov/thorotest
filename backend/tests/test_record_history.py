@@ -86,8 +86,11 @@ def test_steps_change_tracked(client):
     assert hist[0]["action"] == "updated"
     step_change = hist[0]["changes"][0]
     assert step_change["field"] == "steps"
-    assert step_change["old"] == "0 steps"
-    assert step_change["new"] == "2 steps"
+    assert step_change["old"] == []
+    assert step_change["new"] == [
+        {"action": "Open cart", "expected_result": "Cart shown"},
+        {"action": "Checkout", "expected_result": "Order placed"},
+    ]
 
 
 def test_steps_noop_writes_nothing(client):

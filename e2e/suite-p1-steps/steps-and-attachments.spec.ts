@@ -37,38 +37,25 @@ test.describe('Suite P1 — Steps & Attachments', () => {
     await page.goto('/#/tests/TC-2301');
     await page.waitForURL('**/#/tests/TC-2301', { timeout: 10000 });
     await expect(page.locator('.app')).toHaveAttribute('data-screen-label', 'test-detail');
-    await expect(page.locator('.card-title:has-text("Steps")')).toBeVisible({ timeout: 5000 });
-
-    // Add step 1
-    await page.click('.btn.sm.ghost:has-text("Add step")');
-    await page.fill('input.input[placeholder="Action (e.g. Click Submit)"]', 'Navigate to checkout page');
-    await page.fill('input.input[placeholder="Expected result (optional)"]', 'Checkout form is displayed');
-    await page.click('.btn.sm.ghost:has-text("Done")');
-
-    // Add step 2
-    await page.click('.btn.sm.ghost:has-text("Add step")');
-    await page.locator('input.input[placeholder="Action (e.g. Click Submit)"]').last().fill('Enter card number 4242 4242 4242 4242');
-    await page.locator('input.input[placeholder="Expected result (optional)"]').last().fill('Card field accepts input without error');
-    await page.click('.btn.sm.ghost:has-text("Done")');
-
-    // Save
-    const [response] = await Promise.all([
-      page.waitForResponse(r => r.url().includes('/api/tests/TC-2301/steps') && r.request().method() === 'PATCH'),
-      page.click('.btn.sm.accent:has-text("Save steps")'),
-    ]);
-    expect(response.status()).toBe(200);
-    const saved = await response.json();
+    await expect(page.locator('.editor-step-toolbar h2')).toContainText('Steps');
+    for (const [index, action] of ['Navigate to checkout page', 'Enter card number 4242 4242 4242 4242'].entries()) {
+      await page.getByRole('button', { name: 'Add step', exact: true }).click();
+      await page.getByLabel(`Action ${index + 1}`, { exact: true }).fill(action);
+      await page.getByLabel(`Action ${index + 1}`, { exact: true }).blur();
+      await expect(page.getByRole('status')).toContainText('Saved');
+    }
+    const saved = await api(page, 'GET', '/api/tests/TC-2301/steps');
     expect(saved).toHaveLength(2);
     expect(saved[0].action).toBe('Navigate to checkout page');
     expect(saved[1].action).toBe('Enter card number 4242 4242 4242 4242');
 
     // Steps appear in UI
-    await expect(page.locator('.step-text')).toHaveCount(2, { timeout: 5000 });
-    await expect(page.locator('.step-text').first()).toContainText('Navigate to checkout page');
-    await expect(page.locator('.step-text').last()).toContainText('Enter card number');
+    await expect(page.locator('.editor-step')).toHaveCount(2, { timeout: 5000 });
+    await expect(page.getByLabel('Action 1', { exact: true })).toHaveValue('Navigate to checkout page');
+    await expect(page.getByLabel('Action 2', { exact: true })).toHaveValue(/Enter card number/);
 
     // Step count badge updated
-    await expect(page.locator('.card-sub').first()).toContainText('2 steps', { timeout: 3000 });
+    await expect(page.locator('.editor-step-toolbar h2')).toContainText('2');
 
     // Cleanup
     await api(page, 'PATCH', '/api/tests/TC-2301/steps', []);
@@ -84,24 +71,13 @@ test.describe('Suite P1 — Steps & Attachments', () => {
 
     await page.goto('/#/tests/TC-2301');
     await page.waitForURL('**/#/tests/TC-2301', { timeout: 10000 });
-    await expect(page.locator('.step-text')).toHaveCount(2, { timeout: 8000 });
-
-    // Click second step text to enter edit mode
-    await page.locator('.step-text').last().click();
-
-    // Delete button appears in edit mode
-    await page.click('.btn.sm.ghost:has-text("Delete")');
-
-    // 1 step remains
-    await expect(page.locator('.step-text')).toHaveCount(1, { timeout: 3000 });
-
-    // Save
-    const [response] = await Promise.all([
-      page.waitForResponse(r => r.url().includes('/api/tests/TC-2301/steps') && r.request().method() === 'PATCH'),
-      page.click('.btn.sm.accent:has-text("Save steps")'),
-    ]);
-    expect(response.status()).toBe(200);
-    const saved = await response.json();
+    await expect(page.locator('.editor-step')).toHaveCount(2, { timeout: 8000 });
+    await page.getByLabel('Select step 2', { exact: true }).check();
+    await page.getByRole('button', { name: 'Delete selected', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('Saved');
+    await expect(page.locator('.editor-step')).toHaveCount(1);
+    const saved = await api(page, 'GET', '/api/tests/TC-2301/steps');
     expect(saved).toHaveLength(1);
     expect(saved[0].action).toBe('Step to keep');
 

@@ -1,6 +1,7 @@
 import { test as base, Page } from '@playwright/test';
 
 async function loginAs(page: Page, email: string, password = 'demo123') {
+  await page.context().setExtraHTTPHeaders({ 'X-Project-ID': 'demo' });
   await page.goto('/');
   await page.waitForSelector('.login-page', { timeout: 10000 });
   await page.fill('input[type="email"]', email);

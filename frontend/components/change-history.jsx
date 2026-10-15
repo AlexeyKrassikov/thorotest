@@ -40,6 +40,7 @@ function ChangeHistory({ entityType, entityId }) {
   function fmtVal(v) {
     if (v === null || v === undefined || v === "") return <span style={{opacity:0.4}}>—</span>;
     if (typeof v === "boolean") return v ? t("workspace.history.true") : t("workspace.history.false");
+    if (Array.isArray(v)) return <ol>{v.map((step, i) => <li key={i}><div>{step.action}</div><div>{step.expected_result}</div></li>)}</ol>;
     return String(v);
   }
 
@@ -65,7 +66,7 @@ function ChangeHistory({ entityType, entityId }) {
                 <div style={{marginTop:6, display:"flex", flexDirection:"column", gap:4}}>
                   {r.changes.map((c, i) => (
                     <div key={i} style={{fontSize:12, display:"flex", flexWrap:"wrap", gap:6, alignItems:"baseline"}}>
-                      <span style={{fontWeight:500, opacity:0.75, minWidth:90}}>{c.field}</span>
+                      <span style={{fontWeight:500, opacity:0.75, minWidth:90}}>{["author", "description", "prerequisites", "steps", "title", "folder_id", "project_id", "priority", "type", "status", "tags"].includes(c.field) ? t("editor." + c.field) : c.field}</span>
                       <span style={{textDecoration:"line-through", opacity:0.6}}>{fmtVal(c.old)}</span>
                       <span style={{opacity:0.5}}>→</span>
                       <span style={{color:"var(--accent, #6366f1)"}}>{fmtVal(c.new)}</span>

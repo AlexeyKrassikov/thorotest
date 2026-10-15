@@ -67,6 +67,7 @@ def session_result(user, *, auth_time=None, mfa_time=0, primary_method="password
     return {"status": "ok", "token": token, "access_token": token, "token_type": "bearer",
             "user": {"id": user.id, "username": user.username, "email": user.email,
                      "display_name": user.display_name, "role": user.role,
+                     "appearance": user.appearance,
                      "language": user.language or "en", "account_status": user.account_status}}
 
 

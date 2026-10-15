@@ -55,7 +55,10 @@ test.describe.serial('Suite P3 — Retest, Assignment & My Work', () => {
       display_name: 'Tester P3 E2E',
       role: 'tester',
     });
-    if (status === 201) testerUserId = body.id;
+    if (status === 201) {
+      testerUserId = body.id;
+      await apiJSON(page, 'PUT', `/api/projects/demo/members/${body.id}`, { role: 'editor' });
+    }
 
     await ctx.close();
   });
@@ -146,7 +149,7 @@ test.describe.serial('Suite P3 — Retest, Assignment & My Work', () => {
   test('RETEST-07: admin sees assignment dropdown on active run', async ({ page }) => {
     await loginAs(page, 'marco@acme.com');
     await goToRun(page, 'R-1287');
-    await expect(page.locator('select.input').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('main select.input').first()).toBeVisible({ timeout: 5000 });
   });
 
   // RETEST-08: selecting a user persists after navigating away and back
@@ -154,7 +157,7 @@ test.describe.serial('Suite P3 — Retest, Assignment & My Work', () => {
     await loginAs(page, 'marco@acme.com');
     await goToRun(page, 'R-1287');
 
-    const select = page.locator('select.input').first();
+    const select = page.locator('main select.input').first();
     await expect(select).toBeVisible({ timeout: 5000 });
     await select.selectOption({ label: 'Tester P3 E2E' });
     await page.waitForTimeout(500); // let PATCH settle
@@ -164,14 +167,14 @@ test.describe.serial('Suite P3 — Retest, Assignment & My Work', () => {
     await page.waitForURL('**/#/runs', { timeout: 3000 });
     await goToRun(page, 'R-1287');
 
-    await expect(page.locator('select.input').first()).toHaveValue('tester_p3_e2e', { timeout: 5000 });
+    await expect(page.locator('main select.input').first()).toHaveValue('tester_p3_e2e', { timeout: 5000 });
   });
 
   // RETEST-09: tester role has no assignment dropdown
   test('RETEST-09: tester cannot see assignment dropdown', async ({ page }) => {
     await loginAs(page, TESTER_EMAIL, TESTER_PASS);
     await goToRun(page, 'R-1287');
-    await expect(page.locator('select.input')).not.toBeVisible({ timeout: 3000 });
+    await expect(page.locator('main select.input')).not.toBeVisible({ timeout: 3000 });
   });
 
   // ── Flow 4: My Work page ─────────────────────────────────────────────────────

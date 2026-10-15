@@ -105,14 +105,14 @@ test.describe('Suite 3 — Test Library', () => {
     await page.fill('input.input[placeholder*="Describe what"]', 'E2E test creato');
 
     // Folder select
-    const folderSelect = page.locator('select.input').first();
+    const folderSelect = page.getByRole('dialog').locator('select.input').first();
     await folderSelect.selectOption({ index: 1 });
 
     // Type = manual
-    await page.locator('select.input[value="manual"], select.input').nth(1).selectOption('manual');
+    await page.getByRole('dialog').locator('select.input').nth(1).selectOption('manual');
 
     // Priority = high
-    await page.locator('select.input').nth(2).selectOption('high');
+    await page.getByRole('dialog').locator('select.input').nth(2).selectOption('high');
 
     const [response] = await Promise.all([
       page.waitForResponse(r => r.url().includes('/api/tests') && r.request().method() === 'POST'),

@@ -4,7 +4,7 @@
 
 [![version](https://img.shields.io/badge/version-1.13.0-blue)](package.json)
 [![license](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-green)](LICENSE)
-[![tests](https://img.shields.io/badge/tests-725%20unit%20%2B%2038%20e2e%20suites-brightgreen)](#tests)
+[![tests](https://img.shields.io/badge/tests-791%20unit%20%2B%2043%20e2e%20suites-brightgreen)](#tests)
 [![backend](https://img.shields.io/badge/backend-FastAPI-009688)](#stack)
 [![frontend](https://img.shields.io/badge/frontend-React%2018-61DAFB)](#stack)
 [![docker](https://img.shields.io/badge/deploy-Docker-2496ED)](#quickstart)
@@ -350,6 +350,7 @@ lives in one place (the run), never in the YAML.
 | Topic | Doc |
 |---|---|
 | Configuration, `make` commands, AI provider setup | [docs/configuration.md](docs/configuration.md) |
+| Projects, collaborators, case editing and appearance | [docs/project-workspaces.md](docs/project-workspaces.md) |
 | Architecture, project structure, dev workflow | [docs/architecture.md](docs/architecture.md) |
 | REST + GraphQL + WebSocket API, test layout | [docs/api.md](docs/api.md) |
 | GitHub Actions CI setup | [docs/github-actions-ci.md](docs/github-actions-ci.md) |
@@ -362,7 +363,7 @@ lives in one place (the run), never in the YAML.
 
 ## Tests
 
-**725 backend unit tests** (pytest) + **38 Playwright e2e suites** covering every major flow — CI-gated.
+**791 backend unit tests** (pytest) + **43 Playwright e2e suites** covering every major flow — CI-gated.
 
 ```bash
 make test        # backend unit tests

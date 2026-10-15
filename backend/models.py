@@ -31,6 +31,13 @@ class Project(Base):
     tests = relationship("Test", back_populates="project_rel")
 
 
+class ProjectMember(Base):
+    __tablename__ = "project_members"
+    project_id = Column(String(255), ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    role = Column(String(16), nullable=False)
+
+
 class Category(Base):
     __tablename__ = "categories"
     id = Column(String(255), primary_key=True)
@@ -63,6 +70,10 @@ class Test(Base):
     __tablename__ = "tests"
     id = Column(String(255), primary_key=True)
     title = Column(String(512), nullable=False)
+    author = Column(String(255), nullable=True)
+    description = Column(Text, nullable=False, default="", server_default="")
+    prerequisites = Column(Text, nullable=False, default="", server_default="")
+    revision = Column(Integer, nullable=False, default=0, server_default="0")
     folder_id = Column(String(255), ForeignKey("folders.id"), nullable=True)
     project_id = Column(String(255), ForeignKey("projects.id"), nullable=True)
     type = Column(String(32), default="manual")
@@ -266,6 +277,7 @@ class User(Base):
     display_name = Column(String(255), nullable=True)
     role = Column(String(32), default="tester")
     language = Column(String(8), default="en")
+    appearance = Column(JSON, nullable=True)
     totp_secret = Column(String(255), nullable=True)
     totp_enabled = Column(Boolean, default=False)
     # Incremented on logout / forced revocation; JWTs carry the version at issue
@@ -378,6 +390,7 @@ class TestStep(Base):
     order = Column(Integer, nullable=False)        # 1-based display order
     action = Column(Text, nullable=False)          # "Click Add to cart"
     expected_result = Column(Text, nullable=True)  # "Cart shows 1 item"
+    archived = Column(Boolean, nullable=False, default=False, server_default="0")
 
     test = relationship("Test", back_populates="steps")
 

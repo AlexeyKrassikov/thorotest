@@ -6,7 +6,7 @@ os.environ.setdefault("SECRET_KEY", "pytest-fixed-key-" + "0" * 32)
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -17,7 +17,7 @@ import backend.audit_utils as _audit_utils
 
 
 @pytest.fixture
-def db():
+def db(request):
     # StaticPool ensures all connections share the same in-memory SQLite instance
     engine = create_engine(
         "sqlite:///:memory:",
@@ -27,6 +27,25 @@ def db():
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
     session = Session()
+    # Legacy endpoint suites operate in one explicitly selected test workspace.
+    # Isolation tests deliberately provision their own independent memberships.
+    if request.module.__name__ != "test_project_workspace" and not request.module.__name__.endswith(".test_project_workspace"):
+        session.add(models.Project(id="test-project", name="Test project"))
+        session.commit()
+
+        @event.listens_for(session, "before_flush")
+        def assign_fixture_project(db, context, instances):
+            for row in db.new:
+                if isinstance(row, (models.Test, models.Folder)) and row.project_id is None:
+                    row.project_id = "test-project"
+
+        @event.listens_for(session, "after_flush")
+        def assign_fixture_members(db, context):
+            for row in db.new:
+                if isinstance(row, models.User):
+                    db.connection().execute(models.ProjectMember.__table__.insert().values(
+                        project_id="test-project", user_id=row.id,
+                        role="owner" if row.role == "admin" else "editor" if row.role in ("manager", "tester") else "viewer"))
     yield session
     session.close()
     Base.metadata.drop_all(bind=engine)
@@ -49,10 +68,17 @@ def client(db):
     token = create_access_token(admin_user.id)
 
     def override_get_db():
-        yield db
+        try:
+            yield db
+        finally:
+            db.info.pop("project_user", None)
+            db.info.pop("active_project", None)
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app, headers={"Authorization": f"Bearer {token}"}) as c:
+    headers = {"Authorization": f"Bearer {token}"}
+    if db.get(models.Project, "test-project"):
+        headers["X-Project-ID"] = "test-project"
+    with TestClient(app, headers=headers) as c:
         yield c
     app.dependency_overrides.clear()
 
@@ -81,10 +107,14 @@ def auth_client(db):
         token = create_access_token(user.id)
 
         def override_get_db():
-            yield db
+            try:
+                yield db
+            finally:
+                db.info.pop("project_user", None)
+                db.info.pop("active_project", None)
 
         app.dependency_overrides[get_db] = override_get_db
-        c = TestClient(app, headers={"Authorization": f"Bearer {token}"})
+        c = TestClient(app, headers={"Authorization": f"Bearer {token}", "X-Project-ID": "test-project"})
         return c
 
     yield _make

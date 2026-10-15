@@ -35,6 +35,7 @@
     const h = { "Content-Type": "application/json", "Accept-Language": window.TH_I18N.getLanguage(), ...extra };
     const t = getToken();
     if (t) h["Authorization"] = `Bearer ${t}`;
+    if (window.TH_PROJECT?.id) h["X-Project-ID"] = window.TH_PROJECT.id;
     return h;
   }
 
@@ -81,11 +82,13 @@
     },
 
     async init() {
+      const projectId = window.TH_PROJECT?.id;
       try {
         const data = await loadInitialData();
-        window.TH_DATA = data;
+        if (window.TH_PROJECT?.id === projectId) window.TH_DATA = data;
       } catch (e) {
-        console.warn("[ThoroTest] API unavailable, using static data", e.message);
+        if (window.TH_PROJECT?.id === projectId) window.TH_DATA = { tests: [], folders: [], runs: [], defects: [], pipelines: [], activity: [] };
+        throw e;
       }
     },
 

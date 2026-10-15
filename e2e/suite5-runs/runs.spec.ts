@@ -44,7 +44,7 @@ test.describe('Suite 5 — Runs Management', () => {
 
     // Step 2: fill name, env, branch
     await page.fill('input.input:visible', 'E2E Run Test');
-    await page.locator('select.input').selectOption('staging');
+    await page.locator('main select.input').selectOption('staging');
 
     const branchInput = page.locator('input.input:visible').last();
     await branchInput.fill('test/e2e');

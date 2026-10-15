@@ -8,10 +8,15 @@ function TestDetail({ testId, onBack, currentUser }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const deleteModal = useModal(() => setDeleteConfirm(false), { open: deleteConfirm });
   const [saving, setSaving] = useState(false);
   const [defectCount, setDefectCount] = useState(null);
   const [reqCount, setReqCount] = useState(null);
+  const changeTab = next => {
+    if (next !== tab && window.TH_EDITOR_DIRTY && !confirm(t("editor.leaveConfirm"))) return;
+    setTab(next);
+  };
 
   React.useEffect(() => {
     const id = testId || "TC-2301";
@@ -25,8 +30,7 @@ function TestDetail({ testId, onBack, currentUser }) {
       .catch(() => {
         // Fall back to demo data by exact id only — never substitute an
         // unrelated test, so an unknown id renders the "Test not found" state.
-        const D = window.TH_DATA;
-        setTest(D?.tests.find(t => t.id === id) || null);
+        setTest(null);
         setLoading(false);
       });
   }, [testId]);
@@ -57,8 +61,9 @@ function TestDetail({ testId, onBack, currentUser }) {
   };
 
   const handleDelete = async () => {
-    try { await fetch(`/api/tests/${test.id}`, { method: "DELETE", headers: { ...window.authHeaders() } }); } catch (e) {}
-    onBack();
+    setDeleteError("");
+    try { await workspaceRequest(`/tests/${encodeURIComponent(test.id)}`, "DELETE"); onBack(); }
+    catch (e) { setDeleteError(e.message); }
   };
 
   if (loading) return (
@@ -74,19 +79,19 @@ function TestDetail({ testId, onBack, currentUser }) {
   );
 
   return (
-    <div style={{display:"flex", flexDirection:"column", height:"100%", overflow:"hidden"}}>
+    <div className="case-detail" style={{display:"flex", flexDirection:"column", height:"100%", overflow:"hidden"}}>
       {/* Header */}
       <div style={{padding:"18px 22px 0"}}>
         <div style={{display:"flex", alignItems:"center", gap:8, fontSize:11.5, color:"var(--text-dim)", marginBottom:8}}>
-          <button className="btn ghost sm" onClick={onBack}><span style={{transform:"rotate(180deg)", display:"inline-flex"}}><Icon name="chev" /></span> {t("cases.detail.library")}</button>
+          <button className="btn ghost sm" onClick={() => { if (!window.TH_EDITOR_DIRTY || confirm(t("editor.leaveConfirm"))) onBack(); }}><span style={{transform:"rotate(180deg)", display:"inline-flex"}}><Icon name="chev" /></span> {t("cases.detail.library")}</button>
           <span>/</span>
           <span className="mono" style={{color:"var(--text-muted)"}}>{test.id}</span>
         </div>
 
-        <div style={{display:"flex", alignItems:"flex-start", gap:14, marginBottom:14}}>
+        <div className="case-heading" style={{display:"flex", alignItems:"flex-start", gap:14, marginBottom:14}}>
           <div style={{flex:1, minWidth:0}}>
-            <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:6}}>
-              <StatusSelect s={test.status} testId={test.id} onChanged={s => setTest(t => ({...t, status: s}))} />
+            <div style={{display:"flex", flexWrap:"wrap", alignItems:"center", gap:10, marginBottom:6}}>
+              <StatusBadge s={test.status} />
               <span className={"tag priority-" + (test.priority === "high" ? "high" : test.priority === "med" ? "med" : "low")}>{t("cases.detail.priority", { value: t(`cases.library.${test.priority === "med" ? "medium" : test.priority}Priority`) })}</span>
               {test.auto ? <span className="tag" style={{color:"var(--info)", borderColor:"oklch(from var(--info) l c h / 0.3)"}}>{t("cases.detail.automated")} · {test.runner}</span> : <span className="tag">{t("cases.detail.manual")}</span>}
               {test.tags.map(tg => <span key={tg} className="tag">{tg}</span>)}
@@ -109,7 +114,7 @@ function TestDetail({ testId, onBack, currentUser }) {
                 <h1
                   style={{fontSize:22, fontWeight:600, letterSpacing:"-0.02em", margin:"0 0 4px", lineHeight:1.25, cursor:"text"}}
                   title={t("cases.detail.clickEdit")}
-                  onClick={() => { setTitleDraft(test.title); setEditingTitle(true); }}
+                  onClick={() => { setTab("definition"); setTimeout(() => document.querySelector('.case-editor input')?.focus(), 0); }}
                 >{test.title}</h1>
               ) : (
                 <h1
@@ -117,10 +122,10 @@ function TestDetail({ testId, onBack, currentUser }) {
                 >{test.title}</h1>
               )
             )}
-            <div style={{fontSize:12.5, color:"var(--text-muted)", display:"flex", alignItems:"center", gap:10}}>
+            <div style={{fontSize:12.5, color:"var(--text-muted)", display:"flex", flexWrap:"wrap", alignItems:"center", gap:10}}>
               <span className="mono">{test.id}</span>
               <span className="dim">·</span>
-              <span>{t("cases.detail.ownedBy")} <b style={{color:"var(--text)"}}>{test.owner || t("cases.detail.unassigned")}</b></span>
+              <span>{t("editor.author")} <b style={{color:"var(--text)"}}>{test.author || t("cases.detail.unassigned")}</b></span>
               {test.updated_at && <><span className="dim">·</span><span>{t("cases.detail.updated")} <span className="mono">{new Date(test.updated_at).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US")}</span></span></>}
               {test.source_path && <><span className="dim">·</span><span className="mono" style={{color:"var(--accent)"}}>{test.source_path}</span></>}
             </div>
@@ -135,17 +140,18 @@ function TestDetail({ testId, onBack, currentUser }) {
 
       {/* Tabs */}
       <div className="tabs">
-        <div className={"tab" + (tab === "definition" ? " active" : "")} onClick={() => setTab("definition")}>{t("cases.detail.definition")}</div>
-        <div className={"tab" + (tab === "history" ? " active" : "")} onClick={() => setTab("history")}>{t("cases.detail.runHistory")}</div>
-        <div className={"tab" + (tab === "defects" ? " active" : "")} onClick={() => setTab("defects")}>{t("cases.detail.defects")}{defectCount !== null && defectCount > 0 ? <span className="count">{defectCount}</span> : null}</div>
-        <div className={"tab" + (tab === "requirements" ? " active" : "")} onClick={() => setTab("requirements")}>{t("cases.detail.requirements")}{reqCount !== null && reqCount > 0 ? <span className="count">{reqCount}</span> : null}</div>
-        <div className={"tab" + (tab === "comments" ? " active" : "")} onClick={() => setTab("comments")}>{t("cases.detail.comments")}</div>
-        <div className={"tab" + (tab === "changes" ? " active" : "")} onClick={() => setTab("changes")}>{t("cases.detail.changes")}</div>
-        <div className={"tab" + (tab === "git" ? " active" : "")} onClick={() => setTab("git")}>{t("cases.detail.gitHistory")}</div>
+        <div className={"tab" + (tab === "definition" ? " active" : "")} onClick={() => changeTab("definition")}>{t("cases.detail.definition")}</div>
+        <div className={"tab" + (tab === "history" ? " active" : "")} onClick={() => changeTab("history")}>{t("cases.detail.runHistory")}</div>
+        <div className={"tab" + (tab === "defects" ? " active" : "")} onClick={() => changeTab("defects")}>{t("cases.detail.defects")}{defectCount !== null && defectCount > 0 ? <span className="count">{defectCount}</span> : null}</div>
+        <div className={"tab" + (tab === "requirements" ? " active" : "")} onClick={() => changeTab("requirements")}>{t("cases.detail.requirements")}{reqCount !== null && reqCount > 0 ? <span className="count">{reqCount}</span> : null}</div>
+        <div className={"tab" + (tab === "comments" ? " active" : "")} onClick={() => changeTab("comments")}>{t("cases.detail.comments")}</div>
+        <div className={"tab" + (tab === "changes" ? " active" : "")} onClick={() => changeTab("changes")}>{t("cases.detail.changes")}</div>
+        <div className={"tab" + (tab === "git" ? " active" : "")} onClick={() => changeTab("git")}>{t("cases.detail.gitHistory")}</div>
       </div>
 
-      <div style={{overflowY:"auto", flex:1}}>
-        {tab === "definition" && <DefinitionTab test={test} currentUser={currentUser} onTestPatch={patch => setTest(t => ({...t, ...patch}))} />}
+      <div className="case-detail-body" style={{overflowY:"auto", flex:1}}>
+        {tab === "definition" && <CaseEditor key={test.id} test={test} currentUser={currentUser} onTestPatch={patch => setTest(t => ({...t, ...patch}))} />}
+        {tab === "definition" && test.source_path && <YamlSourceCard test={test} readOnly={!window.can(currentUser, "write")} onPushed={patch => setTest(t => ({...t, ...patch}))} />}
         {tab === "history" && <HistoryTab test={test} />}
         {tab === "defects" && <DefectsTab test={test} currentUser={currentUser} />}
         {tab === "requirements" && <RequirementsTab test={test} currentUser={currentUser} onCountChange={setReqCount} />}
@@ -158,6 +164,7 @@ function TestDetail({ testId, onBack, currentUser }) {
         <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...deleteModal.overlayProps}>
           <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:400}} {...deleteModal.dialogProps}>
             <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 10px"}}>{t("cases.detail.deleteTitle", { id: test.id })}</h2>
+            {deleteError && <p role="alert">{deleteError}</p>}
             <p style={{fontSize:12.5, color:"var(--text-muted)", margin:"0 0 20px", lineHeight:1.5}}>{t("cases.detail.deleteBody", { title: test.title })}</p>
             <div style={{display:"flex", gap:8, justifyContent:"flex-end"}}>
               <button className="btn" onClick={() => setDeleteConfirm(false)}>{t("cases.detail.cancel")}</button>
@@ -420,7 +427,7 @@ function Detail({label, value, mono}) {
   );
 }
 
-function YamlSourceCard({test, onPushed}) {
+function YamlSourceCard({test, onPushed, readOnly = false}) {
   const { t, lang } = useI18n();
   const [pushing, setPushing] = useState(false);
   const [msg, setMsg] = useState(null);   // {kind: "ok"|"err", text}
@@ -435,6 +442,7 @@ function YamlSourceCard({test, onPushed}) {
     : null;
 
   async function push() {
+    if (window.TH_EDITOR_DIRTY) return;
     setPushing(true);
     setMsg(null);
     try {
@@ -456,7 +464,7 @@ function YamlSourceCard({test, onPushed}) {
           {t("cases.detail.syncedFromGit")}{shortRef ? ` · ${shortRef}` : ""}{synced ? ` · ${synced}` : ""}
         </div>
         <div className="spacer" />
-        <button className="btn sm" onClick={push} disabled={pushing}
+        <button className="btn sm" onClick={push} disabled={pushing || readOnly}
                 title={t("cases.detail.pushTitle")}>
           <Icon name="upload" /> {pushing ? t("cases.detail.pushing") : t("cases.detail.pushGit")}
         </button>

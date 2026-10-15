@@ -514,6 +514,7 @@ function Library({ onNav, onOpenTest, currentUser }) {
       {/* New test modal */}
       {showNewTest && (
         <NewTestModal
+          currentUser={currentUser}
           folders={allFoldersList}
           defaultFolderId={activeFolder}
           onClose={() => setShowNewTest(false)}
@@ -558,12 +559,14 @@ function Library({ onNav, onOpenTest, currentUser }) {
   );
 }
 
-function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
+function NewTestModal({ folders, defaultFolderId, onClose, onCreate, currentUser }) {
   const { t } = useI18n();
   const [autoId, setAutoId] = useState(false);
   const [form, setForm] = useState({
-    id: "", title: "", folder_id: defaultFolderId || "", type: "manual", priority: "med", owner: "", tags: ""
+    id: "", title: "", folder_id: defaultFolderId || "", type: "manual", priority: "med", author: currentUser?.username || "", tags: ""
   });
+  const [folderOptions, setFolderOptions] = useState(folders);
+  const [folderName, setFolderName] = useState("");
   const [customFields, setCustomFields] = useState({});
   const [cfDefs] = useCustomFieldDefs("test");
   const [saving, setSaving] = useState(false);
@@ -579,13 +582,14 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
     setErr(null);
     try {
       const payload = {
+        project_id: window.TH_PROJECT?.id,
         id: autoId ? null : form.id.trim(),
         auto_id: autoId,
         title: form.title.trim(),
         folder_id: form.folder_id || null,
         type: form.type,
         priority: form.priority,
-        owner: form.owner.trim() || null,
+        author: form.author.trim(),
         tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
         auto: form.type === "automated",
         status: "pending",
@@ -630,8 +634,18 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
           <FormField label={t("cases.library.folder")}>
             <select className="input" value={form.folder_id} onChange={e => setF("folder_id", e.target.value)}>
               <option value="">{t("cases.library.none")}</option>
-              {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              {folderOptions.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
+            <div className="member-row" style={{marginTop:8}}>
+              <input className="input" aria-label={t("editor.newFolder")} placeholder={t("editor.newFolder")} value={folderName} onChange={e => setFolderName(e.target.value)} />
+              <button className="btn icon" title={t("editor.createFolder")} disabled={saving || !folderName.trim()} onClick={async () => {
+                setSaving(true); setErr(null);
+                try {
+                  const folder = await workspaceRequest("/folders", "POST", { id: "folder-" + crypto.randomUUID(), name: folderName.trim(), project_id: window.TH_PROJECT?.id });
+                  setFolderOptions(list => [...list, folder]); setF("folder_id", folder.id); setFolderName("");
+                } catch (e) { setErr(e.message); } finally { setSaving(false); }
+              }}><Icon name="plus" /></button>
+            </div>
           </FormField>
           <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
             <FormField label={t("cases.library.type")}>
@@ -648,8 +662,8 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
               </select>
             </FormField>
           </div>
-          <FormField label={t("cases.library.owner")} hint={t("cases.library.ownerHint")}>
-            <input className="input" value={form.owner} onChange={e => setF("owner", e.target.value)} placeholder={t("cases.library.ownerPlaceholder")} />
+          <FormField label={t("editor.author")}>
+            <input className="input" aria-label={t("editor.author")} value={form.author} onChange={e => setF("author", e.target.value)} />
           </FormField>
           <FormField label={t("cases.library.tags")} hint={t("cases.library.tagsHint")}>
             <input className="input" value={form.tags} onChange={e => setF("tags", e.target.value)} placeholder={t("cases.library.tagsPlaceholder")} />
@@ -700,3 +714,4 @@ function ConfirmDialog({ title, body, onConfirm, onCancel }) {
 }
 
 window.Library = Library;
+window.ConfirmDialog = ConfirmDialog;

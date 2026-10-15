@@ -158,21 +158,20 @@ class TestEndpointRoleGuards:
         })
         assert resp.status_code == 201
 
-    def test_manager_cannot_delete_test(self, auth_client, db):
-        """Manager role cannot delete a test (delete=admin-only per permission matrix)."""
+    def test_project_editor_can_delete_test(self, auth_client, db):
+        """Project editor membership permits case deletion regardless of global role."""
         from backend import models
         t = models.Test(id="TC-MGR1", title="Manager cannot del", type="manual", status="pending", priority="med")
         db.add(t)
         db.commit()
         c = auth_client("manager")
         resp = c.delete("/api/tests/TC-MGR1")
-        assert resp.status_code == 403
+        assert resp.status_code == 204
 
-    def test_non_admin_cannot_bulk_delete(self, auth_client, db):
-        """POST /api/tests/bulk with action=delete returns 403 for tester (non-admin)."""
+    def test_project_editor_can_submit_empty_bulk_delete(self, auth_client, db):
         c = auth_client("tester")
         resp = c.post("/api/tests/bulk", json={"action": "delete", "ids": []})
-        assert resp.status_code == 403
+        assert resp.status_code == 200
 
     def test_admin_can_bulk_delete(self, auth_client, db):
         """POST /api/tests/bulk with action=delete returns 200 for admin."""

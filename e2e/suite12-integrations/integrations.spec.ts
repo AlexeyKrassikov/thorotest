@@ -93,7 +93,7 @@ test.describe('Suite 12 — Integrations, API Tokens, Webhooks', () => {
     // Edit modal
     await expect(page.locator('text="Edit integration"')).toBeVisible({ timeout: 5000 });
     await page.locator('label:has-text("Configured by") + input.login-input').fill('updated-config');
-    await page.selectOption('select', 'disabled');
+    await page.locator('main select').selectOption('disabled');
     // Wait for the PATCH to actually land before reading back the list — clicking
     // Save and immediately GET-ing the list races the write (the old flake).
     const [patchResponse] = await Promise.all([

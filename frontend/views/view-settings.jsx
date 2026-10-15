@@ -38,9 +38,9 @@ function Settings({ currentUser, onProfileUpdate }) {
       </div>
 
       <div className="settings-content" style={{ flex: 1, padding: "28px 36px", overflowY: "auto" }}>
-        {tab === "profile"    && <ProfileTab currentUser={currentUser} onProfileUpdate={onProfileUpdate} />}
+        {tab === "profile"    && <><ProfileTab currentUser={currentUser} onProfileUpdate={onProfileUpdate} /><AppearanceSettings currentUser={currentUser} onProfileUpdate={onProfileUpdate} /></>}
         {tab === "password"   && <PasswordTab />}
-        {tab === "projects"   && <ProjectsTab />}
+        {tab === "projects"   && <ProjectsTab currentUser={currentUser} />}
         {tab === "categories" && <CategoriesTab currentUser={currentUser} />}
         {tab === "folders"       && <FoldersTab />}
         {tab === "notifications" && <NotificationsTab currentUser={currentUser} />}
@@ -199,7 +199,7 @@ function PasswordTab() {
 
 /* ── Projects tab ────────────────────────────────────────── */
 
-function ProjectsTab() {
+function ProjectsTab({ currentUser }) {
   const { t } = useI18n();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -234,6 +234,7 @@ function ProjectsTab() {
         setProjects(p => p.map(x => x.id === editing ? updated : x));
       }
       closeForm();
+      window.dispatchEvent(new Event("projects-changed"));
     } catch (e) { setSaveErr(e.message); }
     finally { setSaving(false); }
   };
@@ -243,6 +244,7 @@ function ProjectsTab() {
     try {
       await window.TH_API.deleteProject(id);
       setProjects(p => p.filter(x => x.id !== id));
+      window.dispatchEvent(new Event("projects-changed"));
     } catch (e) { alert(e.message); }
   };
 
@@ -252,7 +254,7 @@ function ProjectsTab() {
   return (
     <SettingSection title={t("settings.projectsSection.title")} sub={t("settings.projectsSection.sub")}>
       <div style={{ marginBottom: 12 }}>
-        <button className="btn" onClick={openCreate}><Icon name="plus" /> {t("settings.projectsSection.newBtn")}</button>
+        {currentUser?.role === "admin" && <button className="btn" onClick={openCreate}><Icon name="plus" /> {t("settings.projectsSection.newBtn")}</button>}
       </div>
 
       {(creating || editing) && (
@@ -264,6 +266,7 @@ function ProjectsTab() {
           <Field label={t("common.description")}>
             <TextInput value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} placeholder={t("settings.projectsSection.descPlaceholder")} />
           </Field>
+          {editing && <ProjectMembers projectId={editing} />}
           {saveErr && <div style={{ fontSize: 12, color: "var(--fail)", marginBottom: 8 }}>{saveErr}</div>}
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn primary" onClick={save} disabled={saving}>{saving ? t("common.saving") : t("common.save")}</button>
@@ -282,8 +285,8 @@ function ProjectsTab() {
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</div>
                 {p.description && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>{p.description}</div>}
               </div>
-              <button className="btn ghost" style={{ fontSize: 11 }} onClick={() => openEdit(p)}>{t("common.edit")}</button>
-              <button className="btn ghost" style={{ fontSize: 11, color: "var(--fail)" }} onClick={() => remove(p.id)}>{t("common.delete")}</button>
+              {(currentUser?.role === "admin" || p.permission === "owner") && <><button className="btn ghost" style={{ fontSize: 11 }} onClick={() => openEdit(p)}>{t("common.edit")}</button>
+              <button className="btn ghost" style={{ fontSize: 11, color: "var(--fail)" }} onClick={() => remove(p.id)}>{t("common.delete")}</button></>}
             </div>
           ))}
         </div>

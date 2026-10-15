@@ -202,6 +202,14 @@ def update_me(payload: UserUpdate, db: Session = Depends(get_db), current_user: 
         current_user.display_name = payload.display_name
     if payload.language is not None:
         current_user.language = payload.language
+    if payload.appearance is not None:
+        value = payload.appearance
+        if (set(value) - {"textSize", "scale", "density"}
+                or value.get("textSize", 14) not in (14, 16, 18)
+                or value.get("scale", 100) not in (100, 110, 125)
+                or value.get("density", "compact") not in ("compact", "comfortable")):
+            raise HTTPException(422, "Invalid appearance settings")
+        current_user.appearance = value
     db.commit()
     db.refresh(current_user)
     return current_user

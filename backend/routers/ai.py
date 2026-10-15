@@ -250,7 +250,7 @@ async def suggest_edge_cases(
         raise HTTPException(status_code=422, detail="Folder has no tests to analyze")
 
     context_lines = [
-        f"- {t.title}: " + ("; ".join(s.action for s in t.steps) or "(no steps)")
+        f"- {t.title}: " + ("; ".join(s.action for s in t.steps if not s.archived) or "(no steps)")
         for t in tests
     ]
     result = await _call_json(

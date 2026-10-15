@@ -109,8 +109,9 @@ def test_run_notification_localizes_status_without_mutating_enum(db):
         id="R-RU", name="Checkout", status="pass", progress=100,
         total=1, passed=1, failed=0, blocked=0,
     )
-    db.add_all([user, run])
+    db.add_all([user, run, models.Test(id="TC-RU-RUN", title="Checkout")])
     db.flush()
+    db.add(models.RunCase(run_id=run.id, test_id="TC-RU-RUN"))
     db.add(models.NotificationConfig(user_id=user.id, notify_run_complete=True))
     db.commit()
 
@@ -135,6 +136,7 @@ def test_assignment_notification_localizes_entity_label_only(db):
         role="tester", language="ru",
     )
     db.add(user)
+    db.add(models.Test(id="TC-1", title="Login with SSO"))
     db.commit()
     mock_db = MagicMock(wraps=db)
     mock_db.close = MagicMock()

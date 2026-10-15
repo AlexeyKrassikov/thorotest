@@ -102,7 +102,9 @@ class TestTriggers:
         cfg = models.NotificationConfig(user_id=user_id, notify_run_complete=True)
         run = models.Run(id="R-TRIG-1", name="Trigger Run", status="pass",
                          progress=100, total=1, passed=1, failed=0, blocked=0)
-        db.add_all([cfg, run])
+        db.add_all([cfg, run, models.Test(id="TC-RUN-NOTIFY", title="Notification target")])
+        db.flush()
+        db.add(models.RunCase(run_id=run.id, test_id="TC-RUN-NOTIFY"))
         db.commit()
 
         # Patch SessionLocal and db.close() so test session stays open
@@ -285,7 +287,7 @@ class TestMentionAssignmentTriggers:
         from backend.notifications import _notify_mentions
         bob = models.User(username="bob", email="bob@t.com", hashed_password="x", role="tester")
         alice = models.User(username="alice", email="alice@t.com", hashed_password="x", role="tester")
-        db.add_all([bob, alice])
+        db.add_all([bob, alice, models.Test(id="T1", title="Login test")])
         db.commit()
         # alice mentions bob and herself
         self._run(db, lambda: _notify_mentions("Login test", "#/tests/T1",
@@ -311,6 +313,7 @@ class TestMentionAssignmentTriggers:
         from backend.notifications import _notify_assignment
         eve = models.User(username="eve", email="eve@t.com", hashed_password="x", role="tester")
         db.add(eve)
+        db.add(models.Test(id="T3", title="Checkout flow"))
         db.commit()
         self._run(db, lambda: _notify_assignment("test", "Checkout flow",
                                                  "#/tests/T3", "eve", "manager1"))

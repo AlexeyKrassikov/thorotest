@@ -246,12 +246,12 @@ class TestBulkTests:
             t = client.get(f"/api/tests/{tid}").json()
             assert t["status"] == "blocked"
 
-    def test_bulk_with_nonexistent_ids_ignores_them(self, seeded, client):
+    def test_bulk_with_nonexistent_ids_rejects_entire_operation(self, seeded, client):
         r = client.post("/api/tests/bulk", json={
             "action": "delete", "ids": ["TC-A1", "TC-GHOST"],
         })
-        assert r.status_code == 200
-        assert r.json()["affected"] == 1  # only TC-A1 existed
+        assert r.status_code == 404
+        assert client.get("/api/tests/TC-A1").status_code == 200
 
     def test_bulk_empty_ids_returns_zero(self, seeded, client):
         r = client.post("/api/tests/bulk", json={"action": "delete", "ids": []})

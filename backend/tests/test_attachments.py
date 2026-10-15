@@ -3,6 +3,19 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 from backend.main import app
+from backend import models
+
+
+@pytest.fixture(autouse=True)
+def attachment_entities(db):
+    db.add_all([models.Test(id=identifier, title=identifier)
+                for identifier in ("TC-001", "TC-DL", "TC-DEL", "TC-BIG", "TC-SEC", "X")])
+    db.add(models.Run(id="R-ATT", name="Attachment run"))
+    db.flush()
+    db.add(models.RunCase(id=42, run_id="R-ATT", test_id="TC-001"))
+    db.add(models.Attachment(id=999, entity_type="test", entity_id="X",
+                             filename="test.txt", storage_path="test.txt", mime_type="text/plain"))
+    db.commit()
 
 
 def make_file(content=b"hello test file", filename="test.txt", content_type="text/plain"):

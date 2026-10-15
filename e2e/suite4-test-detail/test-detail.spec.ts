@@ -30,7 +30,7 @@ test.describe('Suite 4 — Test Detail', () => {
 
     // Click on title to edit
     await page.click('h1[title="Click to edit title"]');
-    const input = page.locator('input.input:visible').first();
+    const input = page.getByLabel('Title', { exact: true });
     await expect(input).toBeVisible({ timeout: 5000 });
 
     const newTitle = 'E2E Title Edit Test';
@@ -38,7 +38,7 @@ test.describe('Suite 4 — Test Detail', () => {
 
     const [response] = await Promise.all([
       page.waitForResponse(r => r.url().includes('/api/tests/TC-2301') && r.request().method() === 'PATCH'),
-      page.click('.btn.sm.accent:has-text("Save")'),
+      input.press('Enter'),
     ]);
 
     expect(response.status()).toBe(200);
@@ -46,9 +46,10 @@ test.describe('Suite 4 — Test Detail', () => {
 
     // Restore original title
     await page.click('h1[title="Click to edit title"]');
-    const restoreInput = page.locator('input.input:visible').first();
+    const restoreInput = page.getByLabel('Title', { exact: true });
     await restoreInput.fill(originalTitle!.trim());
-    await page.click('.btn.sm.accent:has-text("Save")');
+    await restoreInput.press('Enter');
+    await expect(page.getByRole('status')).toContainText('Saved');
   });
 
   // E2E-DET-03 · Change status da TestDetail [P1]
@@ -56,19 +57,22 @@ test.describe('Suite 4 — Test Detail', () => {
     await page.goto('/#/tests/TC-2301');
     await page.waitForURL('**/#/tests/TC-2301', { timeout: 10000 });
 
-    // Click status badge
-    await page.locator('.status, [class*="status"]').first().click();
-
+    const status = page.getByLabel('Status', { exact: true });
+    await status.focus();
+    const originalStatus = await status.inputValue();
+    await status.selectOption(originalStatus === 'fail' ? 'pass' : 'fail');
     const [response] = await Promise.all([
       page.waitForResponse(r => r.url().includes('/api/tests/TC-2301') && r.request().method() === 'PATCH'),
-      page.click('span.status.fail'),
+      status.blur(),
     ]);
 
     expect(response.status()).toBe(200);
 
     // Restore
-    await page.locator('.status, [class*="status"]').first().click();
-    await page.click('span.status.pass');
+    await status.focus();
+    await status.selectOption(originalStatus);
+    await status.blur();
+    await expect(page.getByRole('status')).toContainText('Saved');
   });
 
   // E2E-DET-04 · Elimina test da TestDetail [P1]
@@ -91,7 +95,7 @@ test.describe('Suite 4 — Test Detail', () => {
     await page.waitForURL('**/#/tests/TC-7777', { timeout: 10000 });
 
     // Delete
-    await page.click('button:has-text("Delete"):visible');
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.locator('.btn:has-text("Delete"):visible').last()).toBeVisible({ timeout: 3000 });
 
     const [response] = await Promise.all([
@@ -219,12 +223,15 @@ test.describe('Suite 4 — Test Detail', () => {
     await page.goto('/#/tests/TC-2301');
     await page.waitForURL('**/#/tests/TC-2301', { timeout: 10000 });
 
-    // Generate a change: flip status to fail (PATCH -> record_history "updated")
-    await page.locator('.status, [class*="status"]').first().click();
+    const status = page.getByLabel('Status', { exact: true });
+    await status.focus();
+    const originalStatus = await status.inputValue();
+    await status.selectOption(originalStatus === 'fail' ? 'pass' : 'fail');
     await Promise.all([
       page.waitForResponse(r => r.url().includes('/api/tests/TC-2301') && r.request().method() === 'PATCH'),
-      page.click('span.status.fail'),
+      status.blur(),
     ]);
+    await expect(page.getByRole('status')).toContainText('Saved');
 
     // Open Changes tab — expect the history endpoint + a rendered entry
     const [response] = await Promise.all([
@@ -237,11 +244,14 @@ test.describe('Suite 4 — Test Detail', () => {
     expect(body.length).toBeGreaterThan(0);
 
     // "status" field diff visible in the timeline
-    await expect(page.locator('.app')).toContainText('status', { timeout: 5000 });
+    await expect(page.locator('.app')).toContainText(/status/i, { timeout: 5000 });
 
     // Restore
-    await page.locator('.status, [class*="status"]').first().click();
-    await page.click('span.status.pass');
+    await page.locator('.tab').filter({ hasText: /^Definition$/ }).click();
+    await status.focus();
+    await status.selectOption(originalStatus);
+    await status.blur();
+    await expect(page.getByRole('status')).toContainText('Saved');
   });
 
 });

@@ -48,7 +48,10 @@ test.describe('Suite P2 — RBAC (Roles & Permissions)', () => {
       display_name: 'Viewer E2E',
       role: 'viewer',
     });
-    if (status === 201) viewerUserId = body.id;
+    if (status === 201) {
+      viewerUserId = body.id;
+      await apiJSON(page, 'PUT', `/api/projects/demo/members/${body.id}`, { role: 'viewer' });
+    }
 
     await ctx.close();
   });
@@ -166,14 +169,14 @@ test.describe('Suite P2 — RBAC (Roles & Permissions)', () => {
   });
 
   // RBAC-06 · Tester UI in Library [P0]
-  test('RBAC-06: tester sees "New test" in Library but no Delete buttons', async ({ page }) => {
+  test('RBAC-06: project editor sees creation and deletion controls', async ({ page }) => {
     await loginAs(page, 'lisa@acme.com');
     await page.click('.nav-item:has-text("Test library"), .nav-item:has-text("Libreria test")');
     await page.waitForURL('**/#/library', { timeout: 5000 });
     await expect(page.locator('.table tr td.mono').first()).toBeVisible({ timeout: 10000 });
 
     await expect(page.locator('button:has-text("New test"), button:has-text("Nuovo test")')).toBeVisible({ timeout: 5000 });
-    expect(await page.locator('button[title="Delete test"]').count()).toBe(0);
+    expect(await page.locator('button[title="Delete test"]').count()).toBeGreaterThan(0);
   });
 
   // RBAC-07 · Viewer sees no write UI in Library and Runs [P0]

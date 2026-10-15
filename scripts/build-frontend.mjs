@@ -78,6 +78,7 @@ const staticFiles = ["styles.css", "fonts.css"];
 const staticDirs = ["fonts"];
 
 const vendorFiles = [
+  ["node_modules/sortablejs/Sortable.min.js", "vendor/sortable.min.js"],
   ["node_modules/react/umd/react.production.min.js", "vendor/react.production.min.js"],
   ["node_modules/react-dom/umd/react-dom.production.min.js", "vendor/react-dom.production.min.js"],
 ];

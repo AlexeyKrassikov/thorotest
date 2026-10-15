@@ -209,11 +209,17 @@ def get_optional_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> Optional[models.User]:
+    db.info.pop("project_user", None)
+    db.info["active_project"] = request.headers.get("x-project-id") or None
     if not credentials:
         return None
     # Long-lived API tokens (th_…) for CI / scripts, resolved before JWT.
     if credentials.credentials.startswith("th_"):
-        return _user_from_api_token(credentials.credentials, db, request.method)
+        user = _user_from_api_token(credentials.credentials, db, request.method)
+        if user:
+            from .project_access import bind_access
+            bind_access(db, user)
+        return user
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
         # Legacy session JWTs had no scope. Continue accepting those until their
@@ -231,6 +237,8 @@ def get_optional_user(
     # user's version, instantly invalidating all previously issued tokens.
     if int(payload.get("tv", 0)) != int(user.token_version or 0):
         return None
+    from .project_access import bind_access
+    bind_access(db, user)
     return user
 
 
@@ -244,6 +252,7 @@ def user_from_bearer_token(token: str, db: Session) -> Optional[models.User]:
     API tokens are deliberately not accepted here; REST resolves those through
     the database-backed API-token path instead.
     """
+    db.info.pop("project_user", None)
     if not token:
         return None
     try:
@@ -258,11 +267,14 @@ def user_from_bearer_token(token: str, db: Session) -> Optional[models.User]:
         return None
     if int(payload.get("tv", 0)) != int(user.token_version or 0):
         return None
+    from .project_access import bind_access
+    bind_access(db, user)
     return user
 
 
 def user_from_websocket_ticket(ticket: str, db: Session) -> Optional[models.User]:
     """Resolve only a scope=websocket ticket; session/API/2FA tokens fail."""
+    db.info.pop("project_user", None)
     if not ticket:
         return None
     try:
@@ -277,6 +289,8 @@ def user_from_websocket_ticket(ticket: str, db: Session) -> Optional[models.User
         return None
     if int(payload.get("tv", 0)) != int(user.token_version or 0):
         return None
+    from .project_access import bind_access
+    bind_access(db, user)
     return user
 
 
@@ -288,15 +302,16 @@ def get_current_user(
     return user
 
 
-def connection_authorizer(db, user):
+def connection_authorizer(db, user, run_id=None):
     user_id, version = user.id, user.token_version
 
     def authorized():
         # A WS dependency lives for the connection; end its old read transaction
         # so a block/logout committed by another worker is visible before delivery.
         db.rollback()
-        return db.query(models.User.id).filter_by(
+        valid = db.query(models.User.id).filter_by(
             id=user_id, token_version=version, account_status="active").first() is not None
+        return valid and (run_id is None or db.query(models.Run).filter_by(id=run_id).first() is not None)
 
     return authorized
 

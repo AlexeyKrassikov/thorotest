@@ -435,13 +435,16 @@ def list_step_results(run_id: str, case_id: int, db: Session = Depends(get_db), 
     existing_ids = {sr.test_step_id for sr in rc.step_results}
     test_steps = (
         db.query(models.TestStep)
-        .filter(models.TestStep.test_id == rc.test_id)
+        .filter(models.TestStep.test_id == rc.test_id, models.TestStep.archived == False)
         .order_by(models.TestStep.order)
         .all()
     )
     for ts in test_steps:
         if ts.id not in existing_ids:
-            db.add(models.StepResult(run_case_id=case_id, test_step_id=ts.id, status="pending"))
+            # Materialize read-authorized pending rows, without granting the
+            # caller permission to submit or alter execution results.
+            db.execute(models.StepResult.__table__.insert().values(
+                run_case_id=case_id, test_step_id=ts.id, status="pending"))
     db.commit()
 
     return (

@@ -41,7 +41,14 @@ List endpoints (`/api/tests`, `/api/runs`, `/api/defects`, `/api/pipelines`, `/a
 accept `limit` and `offset` query params (max 1000 rows per page) and return the total filtered
 row count in the `X-Total-Count` response header.
 
-### API tokens
+### Project Scope and Case Editing
+
+See [Projects and the Test Case Editor](project-workspaces.md#api-clients) for
+project headers, collaborator permissions, case revisions and step editing.
+New cases and folders require a project. Membership is enforced by the server
+for related case data as well as the library UI.
+
+### API Tokens
 
 `POST /api/tokens` mints a `th_…` token that authenticates as its creator.
 

@@ -86,6 +86,14 @@ def seed_db():
         if db.query(models.Folder).count() > 0:
             return  # already seeded
 
+        project = db.get(models.Project, "demo")
+        if not project:
+            db.add(models.Project(id="demo", name="Demo"))
+            db.flush()
+        for user in db.query(models.User).all():
+            if not db.get(models.ProjectMember, ("demo", user.id)):
+                db.add(models.ProjectMember(project_id="demo", user_id=user.id, role="owner" if user.role == "admin" else "editor"))
+
         # Folders (parents first)
         folders = [
             models.Folder(id="auth", name="Authentication", count=24),
@@ -101,6 +109,8 @@ def seed_db():
             models.Folder(id="co-pay", name="Payment", count=18, parent_id="checkout"),
             models.Folder(id="co-coupon", name="Coupons", count=11, parent_id="checkout"),
         ]
+        for folder in folders:
+            folder.project_id = "demo"
         db.add_all(folders)
         db.flush()
 
@@ -123,6 +133,8 @@ def seed_db():
             models.Test(id="TC-2402", title="Expired coupon shows graceful error", folder_id="co-coupon", type="automated", status="pass", priority="low", owner="LP", tags=[], auto=True, runner="jest", updated_at="1w", last_run_at="10m", duration="00:09"),
             models.Test(id="TC-3001", title="Invoice PDF renders correct line items", folder_id="billing", type="manual", status="pass", priority="high", owner="MR", tags=[], auto=False, updated_at="2d", last_run_at="2d", duration="04:30"),
         ]
+        for test in tests:
+            test.project_id = "demo"
         db.add_all(tests)
         db.flush()
 

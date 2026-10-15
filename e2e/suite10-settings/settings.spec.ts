@@ -189,7 +189,7 @@ test.describe('Suite 10 — Settings', () => {
     await page.click('button.btn.primary:has-text("Save")');
 
     // Project appears in list
-    await expect(page.locator('text=E2E Test Project').first()).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('main').getByText('E2E Test Project', { exact: true }).first()).toBeVisible({ timeout: 8000 });
 
     // Verify POST /api/projects was called
     const token = await page.evaluate(() => localStorage.getItem('th_token'));

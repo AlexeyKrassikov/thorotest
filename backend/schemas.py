@@ -19,6 +19,10 @@ FolderOut.model_rebuild()
 class TestOut(BaseModel):
     id: str
     title: str
+    author: Optional[str] = None
+    description: str = ""
+    prerequisites: str = ""
+    revision: int = 0
     folder_id: Optional[str] = None
     project_id: Optional[str] = None
     type: str
@@ -51,6 +55,10 @@ class TestCreate(BaseModel):
     id: Optional[str] = None
     auto_id: bool = False
     title: str
+    project_id: Optional[str] = None
+    author: Optional[str] = None
+    description: str = ""
+    prerequisites: str = ""
     folder_id: Optional[str] = None
     type: str = "manual"
     status: str = "pending"
@@ -66,6 +74,11 @@ class TestCreate(BaseModel):
 
 
 class TestUpdate(BaseModel):
+    revision: Optional[int] = None
+    author: Optional[str] = None
+    description: Optional[str] = None
+    prerequisites: Optional[str] = None
+    type: Optional[str] = None
     title: Optional[str] = None
     status: Optional[str] = None
     priority: Optional[str] = None
@@ -360,6 +373,7 @@ class CommentCreate(BaseModel):
 
 
 class UserOut(BaseModel):
+    appearance: Optional[Dict[str, Any]] = None
     account_status: str = "active"
     id: int
     username: str
@@ -391,6 +405,7 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    appearance: Optional[Dict[str, Any]] = None
     display_name: Optional[str] = None
     email: Optional[str] = None
     language: Optional[str] = None
@@ -416,6 +431,7 @@ class UserLogin(BaseModel):
 
 
 class ProjectOut(BaseModel):
+    permission: Optional[str] = None
     id: str
     name: str
     description: Optional[str] = None
@@ -579,6 +595,7 @@ class TestStepOut(BaseModel):
 
 
 class TestStepIn(BaseModel):
+    id: Optional[int] = None
     action: str
     expected_result: Optional[str] = None
 

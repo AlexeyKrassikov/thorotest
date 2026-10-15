@@ -159,13 +159,8 @@ test.describe('Suite P10 — Auth Header Fix', () => {
 
     // Click on the h1 title to enter edit mode (cursor: text)
     await page.click('h1[title="Click to edit title"]');
-    // Wait for a "Save" button to appear — indicates edit mode is active
-    const saveBtn = page.locator('button:has-text("Save")').first();
-    await saveBtn.waitFor({ timeout: 5000 });
-
-    // Select all text in the focused input and type new title
-    await page.keyboard.press('Control+a');
-    await page.keyboard.type('P10 title save updated');
+    const title = page.getByLabel('Title', { exact: true });
+    await title.fill('P10 title save updated');
 
     // Intercept the PATCH response while triggering save
     const [response] = await Promise.all([
@@ -173,7 +168,7 @@ test.describe('Suite P10 — Auth Header Fix', () => {
         resp => resp.url().includes(`/api/tests/${created.id}`) && resp.request().method() === 'PATCH',
         { timeout: 15000 }
       ),
-      saveBtn.click(),
+      title.press('Enter'),
     ]);
 
     expect(response.status()).toBe(200);

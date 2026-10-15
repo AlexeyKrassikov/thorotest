@@ -201,7 +201,7 @@ test.describe('Suite 11 — Defects View & API', () => {
 
     await page.fill('input[placeholder*="bug"], input[placeholder*="Describe"]', 'DEF-10 E2E defect');
     // Select severity high
-    await page.selectOption('select', 'high');
+    await page.locator('main select').filter({ has: page.locator('option[value="high"]') }).selectOption('high');
     await page.click('.btn.accent:not(.sm):has-text("Create")');
 
     // Defect appears in list
@@ -247,7 +247,7 @@ test.describe('Suite 11 — Defects View & API', () => {
     ]);
     expect(response.status()).toBe(200);
     await expect(page.locator(`.app:has-text("Change history — ${def.id}")`)).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.app')).toContainText('status', { timeout: 5000 });
+    await expect(page.locator('.app')).toContainText(/status/i, { timeout: 5000 });
 
     // Cleanup
     await page.request.delete(`${BASE}/api/defects/${def.id}`, {

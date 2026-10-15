@@ -7,6 +7,9 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 
 function can(user, action) {
   const r = user?.role || "viewer";
+  if (r !== "admin" && ["write", "delete"].includes(action) && window.TH_PROJECT) {
+    return ["owner", "editor"].includes(window.TH_PROJECT.permission);
+  }
   if (action === "write")  return r === "admin" || r === "manager" || r === "tester";
   if (action === "delete") return r === "admin";
   if (action === "admin")  return r === "admin";
@@ -74,6 +77,8 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
   const [runId, setRunId] = useState(initial.runId);
   const [defectFocus, setDefectFocus] = useState(null);   // BUG id to pre-filter the defects list
   const currentUser = initialUser;
+  const [projectVersion, setProjectVersion] = React.useState(0);
+  const [projectReady, setProjectReady] = React.useState(false);
   const [toastMsg, setToastMsg] = React.useState(null);
   const [toastSeverity, setToastSeverity] = React.useState(null);
   // Off-canvas nav drawer, only reachable below the 900px breakpoint.
@@ -90,8 +95,13 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
   // Apply theme + density to <html>
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    document.documentElement.setAttribute("data-density", tweaks.density);
-  }, [theme, tweaks.density]);
+    document.documentElement.setAttribute("data-density", currentUser.appearance?.density || tweaks.density);
+    document.documentElement.setAttribute("data-text-size", String(currentUser.appearance?.textSize || 14));
+    document.documentElement.style.setProperty("--user-font-size", (currentUser.appearance?.textSize || 14) + "px");
+    document.documentElement.style.zoom = String((currentUser.appearance?.scale || 100) / 100);
+    document.documentElement.style.setProperty("--user-scale", String((currentUser.appearance?.scale || 100) / 100));
+    return () => { document.documentElement.style.zoom = ""; document.documentElement.removeAttribute("data-text-size"); };
+  }, [theme, tweaks.density, currentUser.appearance]);
 
   // Sync URL hash when view/id changes
   useEffect(() => {
@@ -119,6 +129,7 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
   }, [currentUser]);
 
   const nav = (id) => {
+    if (window.TH_EDITOR_DIRTY && !confirm(t("editor.leaveConfirm"))) return;
     if (id === "admin" && currentUser?.role !== "admin") {
       setToastMsg(t("shell.adminRequired"));
       setToastSeverity("error");
@@ -226,7 +237,7 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
         current={view === "test-detail" ? "library" : view === "run-detail" ? "runs" : view}
         onNav={(v) => { setSidebarOpen(false); nav(v); }}
         onOpenTest={openTest}
-        density={tweaks.density}
+        density={currentUser.appearance?.density || tweaks.density}
         currentUser={currentUser}
         onLogout={onLogout}
         open={sidebarOpen}
@@ -242,6 +253,7 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
         />
       )}
       <div className="main">
+        <ProjectSelector currentUser={currentUser} onReady={() => { setProjectReady(true); setProjectVersion(v => v + 1); }} onChanging={() => setProjectReady(false)} />
         {!hideTopbar && (
           <Topbar
             crumbs={crumbs}
@@ -252,8 +264,8 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
             sidebarOpen={sidebarOpen}
           />
         )}
-        <main className="content" id="main-content" tabIndex={-1}>
-          {body}
+        <main className="content" id="main-content" tabIndex={-1} key={view === "settings" || view === "admin" ? "global" : projectVersion}>
+          {(view === "settings" || view === "admin" || (projectReady && window.TH_PROJECT)) ? body : <div className="empty">{t("editor.chooseProject")}</div>}
         </main>
       </div>
 
@@ -268,7 +280,12 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
             { value: "dark", label: t("shell.dark") },
             { value: "light", label: t("shell.light") },
           ]} />
-          <TweakRadio label={t("shell.density")} value={tweaks.density} onChange={v => setTweak("density", v)} options={[
+          <TweakRadio label={t("shell.density")} value={currentUser.appearance?.density || tweaks.density} onChange={async v => {
+            try {
+              const user = await workspaceRequest("/me", "PUT", { appearance: { ...currentUser.appearance, density: v } });
+              setTweak("density", v); onProfileUpdate(user);
+            } catch (e) { setToastMsg(e.message); setToastSeverity("error"); }
+          }} options={[
             { value: "compact", label: t("shell.compact") },
             { value: "comfortable", label: t("shell.comfortable") },
           ]} />

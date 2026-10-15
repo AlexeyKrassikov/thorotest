@@ -695,7 +695,10 @@ async def run_ws(run_id: str, websocket: WebSocket, ticket: str = "", db: Sessio
     if user is None:
         await websocket.close(code=1008)
         return
-    authorized = connection_authorizer(db, user)
+    authorized = connection_authorizer(db, user, run_id)
+    if not authorized():
+        await websocket.close(code=1008)
+        return
     await manager.connect(run_id, websocket, authorized)
     try:
         run = db.query(models.Run).filter(models.Run.id == run_id).first()
@@ -737,7 +740,9 @@ async def notifications_ws(websocket: WebSocket, ticket: str = "", db: Session =
         return
     user_id = user.id
     authorized = connection_authorizer(db, user)
-    await notif_manager.connect(user_id, websocket, authorized)
+    from .project_access import can_read_link
+    await notif_manager.connect(user_id, websocket, authorized,
+                                lambda payload: can_read_link(db, user, payload.get("link")))
     try:
         while True:
             await websocket.receive_text()  # keep-alive; client sends pings
