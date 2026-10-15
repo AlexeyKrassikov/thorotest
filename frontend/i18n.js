@@ -7,8 +7,8 @@ window.TH_I18N = (() => {
   const STORAGE_KEY = "th_lang";
   const DEFAULT_LANG = "en";
 
-  let _lang = DEFAULT_LANG;
-  try { _lang = localStorage.getItem(STORAGE_KEY) || DEFAULT_LANG; } catch (_) {}
+  let _lang = null;
+  try { _lang = localStorage.getItem(STORAGE_KEY); } catch (_) {}
   const _listeners = new Set();
 
   function _resolve(lang, key) {
@@ -45,7 +45,23 @@ window.TH_I18N = (() => {
 
   // Called after locale scripts have loaded, before the first React render.
   function initialize() {
-    setLanguage(window.TH_LOCALES[_lang] ? _lang : DEFAULT_LANG);
+    if (Object.hasOwn(window.TH_LOCALES, _lang)) {
+      setLanguage(_lang);
+      return;
+    }
+    const preferences = typeof navigator === "undefined" ? [] :
+      [...(navigator.languages || []), navigator.language];
+    for (const locale of preferences) {
+      if (typeof locale !== "string") continue;
+      const normalized = locale.toLowerCase();
+      const language = [normalized, normalized.split("-")[0]]
+        .find(candidate => Object.hasOwn(window.TH_LOCALES, candidate));
+      if (language) {
+        setLanguage(language);
+        return;
+      }
+    }
+    setLanguage(DEFAULT_LANG);
   }
 
   function getLanguage() {

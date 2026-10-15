@@ -4,10 +4,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-function runtime(stored = 'ru', storageBlocked = false) {
+function runtime(stored = 'ru', storageBlocked = false, navigator = {}) {
   const values = new Map([['th_lang', stored]]);
   const context = vm.createContext({
-    window: {}, document: { documentElement: {}, title: '' }, console, Headers,
+    window: {}, document: { documentElement: {}, title: '' }, console, Headers, navigator,
     localStorage: {
       getItem(key) { if (storageBlocked) throw new Error('blocked'); return values.get(key); },
       setItem(key, value) { if (storageBlocked) throw new Error('blocked'); values.set(key, value); },
@@ -37,6 +37,40 @@ test('unsupported stored language and unavailable storage fall back safely', () 
     assert.equal(r.i18n.getLanguage(), 'en');
     assert.equal(r.context.document.documentElement.lang, 'en');
   }
+});
+
+test('detects the first supported browser locale, including regional variants', () => {
+  for (const navigator of [
+    { languages: ['ja-JP', 'ru-RU', 'en-US'] },
+    { languages: ['RU-ru'] },
+    { language: 'ru-RU' },
+    { languages: [], language: 'ru' },
+  ]) {
+    const { i18n, context } = runtime(null, false, navigator);
+    i18n.initialize();
+    assert.equal(i18n.getLanguage(), 'ru');
+    assert.equal(context.document.documentElement.lang, 'ru');
+  }
+});
+
+test('stored choice wins while invalid or inaccessible storage uses browser preferences', () => {
+  for (const [stored, blocked, expected] of [
+    ['en', false, 'en'], ['invalid', false, 'ru'], ['en', true, 'ru'],
+  ]) {
+    const { i18n } = runtime(stored, blocked, { languages: ['ru-RU'] });
+    i18n.initialize();
+    assert.equal(i18n.getLanguage(), expected);
+  }
+});
+
+test('unsupported browser locales fall back to English and manual selection persists', () => {
+  const { i18n, context } = runtime(null, false, { languages: ['ja-JP', 'zh-CN'] });
+  i18n.initialize();
+  assert.equal(i18n.getLanguage(), 'en');
+  i18n.setLanguage('ru');
+  i18n.initialize();
+  assert.equal(i18n.getLanguage(), 'ru');
+  assert.equal(context.localStorage.getItem('th_lang'), 'ru');
 });
 
 test('switches languages with interpolation, fallback and subscription', () => {

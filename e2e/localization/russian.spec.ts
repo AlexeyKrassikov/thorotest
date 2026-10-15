@@ -1,5 +1,21 @@
 import { test, expect } from '@playwright/test';
 
+test('first visit uses browser locale and keeps a later manual choice', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ locale: 'ru-RU' });
+  const page = await context.newPage();
+  try {
+    await page.goto(baseURL!);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+    await expect(page.locator('select')).toHaveValue('ru');
+    await page.locator('select').selectOption('en');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.locator('select')).toHaveValue('en');
+  } finally {
+    await context.close();
+  }
+});
+
 test('login language persists and does not translate entered data', async ({ page }) => {
   await page.goto('/');
   await page.locator('select').selectOption('ru');
