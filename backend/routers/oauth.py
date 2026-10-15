@@ -225,8 +225,9 @@ def upsert_oauth_user(
             status_code=400,
             detail="We need a verified email from the provider to continue.",
         )
-    # 2. Email must be verified
-    if not verified:
+    # The configured Mattermost server is trusted for identity, without requiring
+    # its email-verification flag. Existing-account linking still needs confirmation.
+    if not verified and provider != "mattermost":
         raise HTTPException(
             status_code=400,
             detail="Your provider email must be verified to continue.",
@@ -359,18 +360,22 @@ async def mattermost_callback(request: Request, db: Session = Depends(get_db),
         return response
 
     failed = "oauth-error=failed&provider=mattermost"
+    def reject(reason):
+        logger.warning("Mattermost OAuth failed reason=%s", reason)
+        return finish(failed)
+
     cookie = request.cookies.get(_MM_COOKIE, "")
     if not state or not cookie or not secrets.compare_digest(state.encode(), cookie.encode()):
-        return finish(failed)
+        return reject("browser_state_mismatch")
     try:
         _consume_state(db, state, "mattermost")
     except HTTPException:
-        return finish(failed)
+        return reject("state_invalid_or_expired")
     if error:
         return finish("oauth-error=cancelled&provider=mattermost")
     config = mattermost_config()
     if not config or not code:
-        return finish(failed)
+        return reject("configuration_or_code_missing")
     url, client_id, secret = config
     try:
         async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
@@ -382,13 +387,15 @@ async def mattermost_callback(request: Request, db: Session = Depends(get_db),
             token.raise_for_status()
             access_token = token.json().get("access_token")
             if not isinstance(access_token, str) or not access_token:
-                return finish(failed)
+                return reject("access_token_missing")
             profile = await client.get(f"{url}/api/v4/users/me",
                                        headers={"Authorization": f"Bearer {access_token}"})
             profile.raise_for_status()
             user = profile.json()
         if not isinstance(user.get("id"), str) or not user["id"] or user.get("delete_at", 0):
-            return finish(failed)
+            return reject("profile_inactive_or_invalid")
+        if not user.get("email"):
+            return reject("email_missing")
         result = upsert_oauth_user(
             db, provider="mattermost", oauth_id=user["id"], email=user.get("email"),
             verified=user.get("email_verified") is True,
@@ -396,7 +403,7 @@ async def mattermost_callback(request: Request, db: Session = Depends(get_db),
             ip=request.client.host if request.client else None, allow_provisioning=True,
         )
     except HTTPException:
-        return finish(failed)
+        return reject("account_rejected")
     except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError):
         # Never log token responses, authorization codes, or provider secrets.
         logger.warning("Mattermost OAuth exchange or profile validation failed")

@@ -19,12 +19,14 @@ For deployments with an explicit environment allowlist, pass all three
 Mattermost variables to the app container.
 
 The server exchanges the code at `/oauth/access_token` and fetches the profile
-from `/api/v4/users/me`. The profile must contain an ID and verified email;
-deactivated users are rejected. Configure email verification in Mattermost.
+from `/api/v4/users/me`. The profile must contain an ID and email;
+deactivated users are rejected. Mattermost's `email_verified` flag is not required.
+The configured Mattermost server is trusted for identity; linking an existing
+account with the same email still requires password confirmation.
 
 New Mattermost users receive `viewer`, regardless of their Mattermost roles.
 This does not enable local, GitHub or Google self-registration:
-keep `ALLOW_OPEN_REGISTRATION=0`. Any active, verified user on the configured
+keep `ALLOW_OPEN_REGISTRATION=0`. Any active user with an email on the configured
 Mattermost server can create a viewer account; this is not a team filter.
 An existing matching email requires explicit password confirmation before
 linking; returning users retain their existing ThoroTest role and 2FA.

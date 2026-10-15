@@ -76,7 +76,6 @@ def test_first_login_is_viewer_and_state_is_single_use(client, db, configured):
 
 
 @pytest.mark.parametrize("updates", [
-    {"email_verified": False}, {"email_verified": "false"},
     {"delete_at": 1}, {"email": ""}, {"id": ""},
 ])
 def test_invalid_profile_rejected(client, db, configured, updates):
@@ -88,7 +87,7 @@ def test_invalid_profile_rejected(client, db, configured, updates):
 
 
 def test_same_email_requires_confirmation(client, db, configured):
-    profile = {"id": "mm-admin", "email": "admin@test.com", "email_verified": True}
+    profile = {"id": "mm-admin", "email": "admin@test.com", "email_verified": False}
     response, _ = exchange(client, start(client), profile)
     assert "#oauth-confirm=" in response.headers["location"]
     assert db.query(models.OAuthIdentity).filter_by(provider="mattermost").count() == 0
@@ -122,3 +121,37 @@ def test_unicode_state_is_rejected(client, configured):
     response, remote = exchange(client, "\u0442\u0435\u0441\u0442")
     assert "oauth-error=failed" in response.headers["location"]
     remote.post.assert_not_called()
+
+
+@pytest.mark.parametrize(("updates", "reason"), [
+    ({"email": ""}, "email_missing"),
+    ({"delete_at": 1}, "profile_inactive_or_invalid"),
+])
+def test_failure_logs_safe_reason(client, configured, caplog, updates, reason):
+    profile = {"id": "private-profile-id", "email": "private@example.test",
+               "email_verified": True, **updates}
+    state = start(client)
+    response, _ = exchange(client, state, profile)
+    assert "oauth-error=failed" in response.headers["location"]
+    assert f"reason={reason}" in caplog.text
+    for secret in (state, "private-profile-id", "private@example.test", "provider-token", "client-secret"):
+        assert secret not in caplog.text
+
+
+def test_missing_cookie_logs_safe_reason(client, configured, caplog):
+    state = start(client)
+    client.cookies.clear()
+    exchange(client, state)
+    assert "reason=browser_state_mismatch" in caplog.text
+    assert state not in caplog.text
+
+
+@pytest.mark.parametrize("verification", [False, "false", None])
+def test_mattermost_does_not_require_email_verification(client, db, configured, verification):
+    profile = {"id": "mm-unverified", "email": "person@example.test"}
+    if verification is not None:
+        profile["email_verified"] = verification
+    response, _ = exchange(client, start(client), profile)
+    assert "#token=" in response.headers["location"]
+    user = db.query(models.User).filter_by(email="person@example.test").one()
+    assert user.role == "viewer"
