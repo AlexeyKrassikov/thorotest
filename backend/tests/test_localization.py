@@ -43,6 +43,13 @@ def test_dynamic_error_template_preserves_interpolated_data():
     )
 
 
+def test_oauth_provider_admin_errors_are_localized_in_russian():
+    from backend.localization import translate
+
+    assert translate("OAuth provider not found", "ru") == "Провайдер OAuth не найден"
+    assert translate("This OAuth provider is disabled", "ru") == "Этот провайдер OAuth отключен"
+
+
 def test_accept_language_respects_quality_and_zero_quality():
     from backend.localization import language_from_header
 

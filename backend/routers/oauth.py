@@ -65,6 +65,34 @@ GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 BASE_URL = os.getenv("TESTHUB_BASE_URL", "http://localhost:8000")
+OAUTH_PROVIDERS = ("github", "google", "mattermost")
+
+
+def oauth_provider_enabled(db: Session, provider: str) -> bool:
+    if provider not in OAUTH_PROVIDERS:
+        return False
+    setting = db.query(models.OAuthProviderSetting).filter_by(provider=provider).first()
+    return setting.enabled if setting else True
+
+
+def oauth_provider_configured(provider: str) -> bool:
+    if provider == "github":
+        return bool(GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET)
+    if provider == "google":
+        return bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
+    if provider == "mattermost":
+        return mattermost_config() is not None
+    return False
+
+
+def oauth_provider_status(db: Session) -> dict:
+    return {
+        provider: {
+            "enabled": oauth_provider_enabled(db, provider),
+            "configured": oauth_provider_configured(provider),
+        }
+        for provider in OAUTH_PROVIDERS
+    }
 
 
 def mattermost_config():
@@ -188,6 +216,9 @@ def upsert_oauth_user(
 
     Raises HTTP 400 for missing/unverified email.
     """
+    if not oauth_provider_enabled(db, provider):
+        raise HTTPException(status_code=403, detail="This OAuth provider is disabled")
+
     # 1. Email required
     if not email:
         raise HTTPException(
@@ -298,6 +329,8 @@ _MM_PATH = "/api/auth/oauth/mattermost"
 
 @router.get("/auth/oauth/mattermost/redirect")
 async def mattermost_redirect(db: Session = Depends(get_db)):
+    if not oauth_provider_enabled(db, "mattermost"):
+        raise HTTPException(403, "This OAuth provider is disabled")
     config = mattermost_config()
     if not config:
         raise HTTPException(503, "Mattermost login is not configured")
@@ -317,6 +350,9 @@ async def mattermost_redirect(db: Session = Depends(get_db)):
 async def mattermost_callback(request: Request, db: Session = Depends(get_db),
                               code: str | None = None, state: str | None = None,
                               error: str | None = None):
+    if not oauth_provider_enabled(db, "mattermost"):
+        raise HTTPException(403, "This OAuth provider is disabled")
+
     def finish(fragment):
         response = RedirectResponse(f"{BASE_URL.rstrip('/')}/#{fragment}")
         response.delete_cookie(_MM_COOKIE, path=_MM_PATH)
@@ -379,6 +415,8 @@ async def mattermost_callback(request: Request, db: Session = Depends(get_db),
 @router.get("/auth/oauth/github/redirect")
 async def github_redirect(db: Session = Depends(get_db)):
     """Initiate the GitHub OAuth Authorization Code flow."""
+    if not oauth_provider_enabled(db, "github"):
+        raise HTTPException(403, "This OAuth provider is disabled")
     state = _new_state(db, "github")
     params = urlencode({
         "client_id": GITHUB_CLIENT_ID,
@@ -402,6 +440,8 @@ async def github_callback(
     request: Request = None,
 ):
     """Handle the GitHub OAuth callback after user authorization."""
+    if not oauth_provider_enabled(db, "github"):
+        raise HTTPException(403, "This OAuth provider is disabled")
     # User denied consent
     if error:
         return RedirectResponse(f"{BASE_URL}/#oauth-error=cancelled&provider=github")
@@ -497,6 +537,8 @@ async def github_callback(
 @router.get("/auth/oauth/google/redirect")
 async def google_redirect(db: Session = Depends(get_db)):
     """Initiate the Google OAuth Authorization Code flow."""
+    if not oauth_provider_enabled(db, "google"):
+        raise HTTPException(403, "This OAuth provider is disabled")
     state = _new_state(db, "google")
     params = urlencode({
         "client_id": GOOGLE_CLIENT_ID,
@@ -521,6 +563,8 @@ async def google_callback(
     request: Request = None,
 ):
     """Handle the Google OAuth callback after user authorization."""
+    if not oauth_provider_enabled(db, "google"):
+        raise HTTPException(403, "This OAuth provider is disabled")
     # User denied consent
     if error:
         return RedirectResponse(f"{BASE_URL}/#oauth-error=cancelled&provider=google")
@@ -609,6 +653,9 @@ def confirm_link(payload: ConfirmLinkPayload, db: Session = Depends(get_db), req
             status_code=400,
             detail="Link session expired. Please try signing in again.",
         )
+
+    if not oauth_provider_enabled(db, row.provider):
+        raise HTTPException(status_code=403, detail="This OAuth provider is disabled")
 
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
     if not user:

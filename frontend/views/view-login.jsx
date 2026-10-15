@@ -15,14 +15,14 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
   // Demo instances (DEMO_MODE) advertise seeded throwaway logins so visitors
   // can sign in; empty on a normal deploy.
   const [demoAccounts, setDemoAccounts] = useState([]);
-  const [mattermostEnabled, setMattermostEnabled] = useState(false);
+  const [oauthProviders, setOAuthProviders] = useState({});
 
   useEffect(() => {
     fetch("/api/config")
       .then(r => (r.ok ? r.json() : {}))
       .then(c => {
         setDemoAccounts(Array.isArray(c.demo_accounts) ? c.demo_accounts : []);
-        setMattermostEnabled(c.oauth_providers?.mattermost === true);
+        setOAuthProviders(c.oauth_providers || {});
       })
       .catch(() => {});
   }, []);
@@ -255,9 +255,9 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
           </div>
         )}
 
-        {mode === "login" && (<React.Fragment>
+        {mode === "login" && Object.values(oauthProviders).some(value => value === true) && (<React.Fragment>
         <div className="login-oauth-buttons">
-          {mattermostEnabled && (
+          {oauthProviders.mattermost === true && (
             <button type="button" className="btn login-oauth-btn"
               style={{ width: "100%", marginTop: 12 }} disabled={oauthLoading !== null}
               onClick={() => {
@@ -272,7 +272,7 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
             <span style={{ fontSize: 12, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t("login.orContinue")}</span>
             <div style={{ flex: 1, height: 1, background: "var(--border, #3f3f5a)" }} />
           </div>
-          <button
+          {oauthProviders.github === true && <button
             type="button"
             className="btn login-oauth-btn"
             disabled={oauthLoading === "github"}
@@ -287,8 +287,8 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
               </svg>
             )}
             {t("login.github")}
-          </button>
-          <button
+          </button>}
+          {oauthProviders.google === true && <button
             type="button"
             className="btn login-oauth-btn"
             disabled={oauthLoading === "google"}
@@ -306,7 +306,7 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
               </svg>
             )}
             {t("login.google")}
-          </button>
+          </button>}
         </div>
 
         </React.Fragment>)}

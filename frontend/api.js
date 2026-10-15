@@ -827,6 +827,20 @@
       if (!res.ok && res.status !== 204) throw new Error(errorMessage(t("api.deleteAttachmentFailed")));
     },
 
+    async getOAuthProviders() {
+      const response = await fetch(BASE + "/api/admin/oauth-providers", { headers: authHeaders() });
+      if (!response.ok) throw new Error(errorMessage(await response.text()));
+      return response.json();
+    },
+
+    async setOAuthProvider(provider, enabled) {
+      const response = await fetch(BASE + `/api/admin/oauth-providers/${encodeURIComponent(provider)}`, {
+        method: "PATCH", headers: authHeaders(), body: JSON.stringify({ enabled }),
+      });
+      if (!response.ok) throw new Error(errorMessage(await response.text()));
+      return response.json();
+    },
+
     async listAdminUsers() {
       const resp = await fetch(BASE + "/api/admin/users", { headers: authHeaders() });
       if (!resp.ok) throw new Error(errorMessage(await resp.text()));

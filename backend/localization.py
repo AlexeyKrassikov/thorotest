@@ -124,6 +124,8 @@ _MESSAGES = {
     "2FA already enabled": "Двухфакторная аутентификация уже включена",
     "2FA not enabled": "Двухфакторная аутентификация не включена",
     "Invalid or expired OAuth state": "Состояние OAuth недействительно или устарело",
+    "OAuth provider not found": "Провайдер OAuth не найден",
+    "This OAuth provider is disabled": "Этот провайдер OAuth отключен",
     "Link session expired. Please try signing in again.": "Срок действия сеанса привязки истек. Войдите еще раз.",
     "Incorrect password.": "Неверный пароль.",
     "No run history found for this test": "Для этого теста не найдена история запусков",

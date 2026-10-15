@@ -43,4 +43,7 @@ test-results/
 *.local.sh
 *.local.mjs
 
+# Private deployment configuration
+/docker-compose.dokploy.local.yml
+
 *.log

@@ -13,8 +13,18 @@ test('login language persists and does not translate entered data', async ({ pag
   await expect(page.locator('button[type=submit]')).toHaveText('Войти');
 });
 
-test('Russian routes render, preserve data and switch live without missing keys', async ({ page }) => {
+test('Russian routes render, preserve data and switch live without missing keys', async ({ page, baseURL }) => {
   const errors: string[] = [];
+  const externalRequests: string[] = [];
+  const origin = new URL(baseURL!).origin;
+  page.on('request', request => {
+    const url = new URL(request.url());
+    if (['http:', 'https:'].includes(url.protocol) && url.origin !== origin) externalRequests.push(url.origin);
+  });
+  page.on('websocket', socket => {
+    const url = new URL(socket.url());
+    if (url.host !== new URL(baseURL!).host) externalRequests.push(url.origin);
+  });
   page.on('pageerror', e => errors.push(e.message));
   const login = await page.request.post('/api/auth/login', { data: { email: 'marco@acme.com', password: 'demo123' } });
   expect(login.ok()).toBeTruthy();
@@ -67,6 +77,7 @@ test('Russian routes render, preserve data and switch live without missing keys'
     await page.screenshot({ path: test.info().outputPath(`${route.replaceAll('/', '-')}.png`), fullPage: true, animations: 'disabled' });
   }
   expect(errors).toEqual([]);
+  expect(externalRequests, 'Normal app navigation must not contact third-party services').toEqual([]);
   } finally {
     await page.request.delete(`/api/admin/users/${user.id}`, { headers: { Authorization: `Bearer ${adminToken}` } });
   }

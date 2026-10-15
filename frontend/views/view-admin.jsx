@@ -17,6 +17,7 @@ function AdminPage({ currentUser, onNav }) {
   const ADMIN_TABS = [
     { id: "users",     label: t("admin.title") },
     { id: "custom-fields", label: t("workspace.admin.customFields") },
+    { id: "oauth", label: "OAuth" },
     ...(window.can && window.can(currentUser, "manage") ? [{ id: "audit-log", label: t("workspace.admin.auditLog") }] : []),
   ];
 
@@ -72,7 +73,7 @@ function AdminPage({ currentUser, onNav }) {
   return (
     <div className="page fade-in" style={{ padding: "20px 24px" }}>
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)", marginBottom: 20 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, borderBottom: "1px solid var(--border)", marginBottom: 20 }}>
         {ADMIN_TABS.map(tb => (
           <button
             key={tb.id}
@@ -172,9 +173,61 @@ function AdminPage({ currentUser, onNav }) {
         </div>
       )}
       {tab === "custom-fields" && <CustomFieldsAdmin />}
+      {tab === "oauth" && <OAuthProvidersAdmin />}
       {tab === "audit-log" && <AuditLogTab currentUser={currentUser} />}
     </div>
   );
 }
 
 window.AdminPage = AdminPage;
+
+function OAuthProvidersAdmin() {
+  const { t } = useI18n();
+  const [providers, setProviders] = React.useState(null);
+  const [saving, setSaving] = React.useState(null);
+  const [error, setError] = React.useState(null);
+  const names = { github: "GitHub", google: "Google", mattermost: "Mattermost" };
+
+  const load = React.useCallback(async () => {
+    setError(null);
+    try { setProviders(await window.TH_API.getOAuthProviders()); }
+    catch (e) { setError(e.message); }
+  }, []);
+  React.useEffect(() => { load(); }, [load]);
+
+  async function change(provider, enabled) {
+    const previous = providers[provider];
+    setSaving(provider);
+    setError(null);
+    setProviders(current => ({ ...current, [provider]: { ...current[provider], enabled } }));
+    try {
+      const updated = await window.TH_API.setOAuthProvider(provider, enabled);
+      setProviders(current => ({ ...current, [provider]: updated }));
+    } catch (e) {
+      setProviders(current => ({ ...current, [provider]: previous }));
+      setError(e.message);
+    }
+    finally { setSaving(null); }
+  }
+
+  return (
+    <section style={{ maxWidth: 640 }}>
+      <h2 style={{ fontSize: 18, marginBottom: 16 }}>{t("workspace.oauth.title")}</h2>
+      {error && <div role="alert" style={{ color: "var(--fail)", marginBottom: 12 }}>{error}</div>}
+      {!providers && !error && <p>{t("common.loading")}</p>}
+      {!providers && error && <button className="btn" onClick={load}>{t("workspace.oauth.retry")}</button>}
+      {providers && Object.entries(names).map(([provider, name]) => (
+        <div key={provider} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "16px 0", borderBottom: "1px solid var(--border)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 140 }}>
+            <input type="checkbox" checked={providers[provider].enabled} disabled={saving !== null}
+              onChange={e => change(provider, e.target.checked)} />
+            {name}
+          </label>
+          <span style={{ fontSize: 12, color: providers[provider].configured ? "var(--text-muted)" : "var(--warn)" }}>
+            {saving === provider ? t("common.saving") : t(providers[provider].configured ? "workspace.oauth.configured" : "workspace.oauth.notConfigured")}
+          </span>
+        </div>
+      ))}
+    </section>
+  );
+}

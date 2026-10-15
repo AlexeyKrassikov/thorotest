@@ -1,17 +1,81 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict, StrictBool
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..db import get_db
 from .. import models
 from ..schemas import UserOut, AdminUserCreate, UserRoleUpdate
 from ..auth_utils import require_role, hash_password, validate_password
-from ..audit_utils import log_event, EVT_USER_CREATED, EVT_USER_DELETED, EVT_ROLE_CHANGED
+from ..audit_utils import (
+    log_event,
+    EVT_USER_CREATED,
+    EVT_USER_DELETED,
+    EVT_ROLE_CHANGED,
+    EVT_OAUTH_PROVIDER_SETTING_CHANGED,
+)
 
 router = APIRouter(tags=["admin"])
 
 ADMIN_ONLY = require_role("admin")
 
 VALID_ROLES = {"admin", "manager", "tester", "viewer"}
+OAUTH_PROVIDERS = {"github", "google", "mattermost"}
+
+
+class OAuthProviderSettingUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: StrictBool
+
+
+@router.get("/admin/oauth-providers")
+def list_oauth_providers(
+    db: Session = Depends(get_db),
+    _: models.User = ADMIN_ONLY,
+):
+    from .oauth import oauth_provider_status
+
+    return oauth_provider_status(db)
+
+
+@router.patch("/admin/oauth-providers/{provider}")
+def update_oauth_provider(
+    provider: str,
+    payload: OAuthProviderSettingUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = ADMIN_ONLY,
+):
+    if provider not in OAUTH_PROVIDERS:
+        raise HTTPException(status_code=404, detail="OAuth provider not found")
+
+    setting = db.query(models.OAuthProviderSetting).filter_by(provider=provider).first()
+    if setting is None:
+        try:
+            with db.begin_nested():
+                setting = models.OAuthProviderSetting(provider=provider, enabled=payload.enabled)
+                db.add(setting)
+                db.flush()
+        except IntegrityError:
+            setting = db.query(models.OAuthProviderSetting).filter_by(provider=provider).first()
+            if setting is None:
+                raise
+            setting.enabled = payload.enabled
+    else:
+        setting.enabled = payload.enabled
+    db.commit()
+
+    log_event(
+        EVT_OAUTH_PROVIDER_SETTING_CHANGED,
+        actor_id=current_user.id,
+        actor_email=current_user.email,
+        description=f"{current_user.email} {'enabled' if payload.enabled else 'disabled'} {provider} OAuth",
+        target_type="oauth_provider",
+        target_id=provider,
+    )
+    from .oauth import oauth_provider_configured
+
+    return {"enabled": payload.enabled, "configured": oauth_provider_configured(provider)}
 
 
 @router.get("/admin/users", response_model=list[UserOut])

@@ -4,7 +4,7 @@ import os
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -297,7 +297,7 @@ DEMO_ACCOUNTS = [
 
 
 @app.get("/api/config")
-async def public_config():
+async def public_config(response: Response, db: Session = Depends(get_db)):
     """Public UI bootstrap flags.
 
     Deliberately unauthenticated — the login screen needs them (e.g. the demo
@@ -307,10 +307,14 @@ async def public_config():
     """
     from .ws_manager import DEMO_MODE  # read at call time so tests can patch it
 
+    response.headers["Cache-Control"] = "no-store"
     return {
         "demo_mode": DEMO_MODE,
         "demo_accounts": DEMO_ACCOUNTS if DEMO_MODE else [],
-        "oauth_providers": {"mattermost": oauth.mattermost_config() is not None},
+        "oauth_providers": {
+            provider: status["enabled"] and status["configured"]
+            for provider, status in oauth.oauth_provider_status(db).items()
+        },
     }
 
 

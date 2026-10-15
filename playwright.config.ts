@@ -42,6 +42,10 @@ export default defineConfig({
       // The suite exercises the self-registration endpoint, which ships closed.
       ALLOW_OPEN_REGISTRATION: '1',
       LOGIN_RATELIMIT_DISABLED: '1',
+      GITHUB_CLIENT_ID: 'browser-test-client',
+      GITHUB_CLIENT_SECRET: 'browser-test-secret',
+      GOOGLE_CLIENT_ID: 'browser-test-client',
+      GOOGLE_CLIENT_SECRET: 'browser-test-secret',
       // e2e webhook tests point at a local target; allow private hosts for the
       // SSRF guard in this environment only (never in production).
       WEBHOOK_ALLOW_PRIVATE_HOSTS: '1',

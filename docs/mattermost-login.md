@@ -30,6 +30,14 @@ An existing matching email requires explicit password confirmation before
 linking; returning users retain their existing ThoroTest role and 2FA.
 Local administrator login remains available.
 
+Administrators can enable or disable GitHub, Google and Mattermost under
+**Admin > OAuth**. Choices persist in the database and apply without restarting
+the app. A login button appears only when the provider is enabled and its
+environment credentials are configured. Disabling a provider also blocks its
+redirect, callback and pending account-link flow; existing sessions are not
+revoked. Local password login remains available. The admin API never returns
+provider credentials.
+
 State is single-use, expires after ten minutes, and is tied to an HttpOnly,
 SameSite=Lax browser cookie (Secure when TESTHUB_BASE_URL is HTTPS). Provider
 tokens and client secrets are not sent to the browser or stored in the user

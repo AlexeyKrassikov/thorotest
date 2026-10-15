@@ -437,6 +437,12 @@ class OAuthState(Base):
     expires_at = Column(String(64), nullable=False)
 
 
+class OAuthProviderSetting(Base):
+    __tablename__ = "oauth_provider_settings"
+    provider = Column(String(32), primary_key=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+
+
 class OAuthIdentity(Base):
     __tablename__ = "oauth_identities"
     id = Column(Integer, primary_key=True, autoincrement=True)

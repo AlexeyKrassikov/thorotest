@@ -60,14 +60,29 @@ def test_demo_mode_env_parsing(monkeypatch):
 
 def test_config_demo_mode_off_by_default(client, monkeypatch):
     monkeypatch.delenv("MATTERMOST_URL", raising=False)
+    import backend.routers.oauth as oauth
+    monkeypatch.setattr(oauth, "GITHUB_CLIENT_ID", "")
+    monkeypatch.setattr(oauth, "GITHUB_CLIENT_SECRET", "")
+    monkeypatch.setattr(oauth, "GOOGLE_CLIENT_ID", "")
+    monkeypatch.setattr(oauth, "GOOGLE_CLIENT_SECRET", "")
     monkeypatch.setattr(ws_manager, "DEMO_MODE", False)
     r = client.get("/api/config")
     assert r.status_code == 200
-    assert r.json() == {"demo_mode": False, "demo_accounts": [], "oauth_providers": {"mattermost": False}}
+    assert r.headers["cache-control"] == "no-store"
+    assert r.json() == {
+        "demo_mode": False,
+        "demo_accounts": [],
+        "oauth_providers": {"github": False, "google": False, "mattermost": False},
+    }
 
 
 def test_config_demo_mode_on(client, monkeypatch):
     monkeypatch.setattr(ws_manager, "DEMO_MODE", True)
+    import backend.routers.oauth as oauth
+    monkeypatch.setattr(oauth, "GITHUB_CLIENT_ID", "")
+    monkeypatch.setattr(oauth, "GITHUB_CLIENT_SECRET", "")
+    monkeypatch.setattr(oauth, "GOOGLE_CLIENT_ID", "")
+    monkeypatch.setattr(oauth, "GOOGLE_CLIENT_SECRET", "")
     body = client.get("/api/config").json()
     assert body["demo_mode"] is True
     assert len(body["demo_accounts"]) >= 1
@@ -101,5 +116,6 @@ def test_config_is_public_and_minimal(db, monkeypatch):
         r = c.get("/api/config")
     app.dependency_overrides.clear()
     assert r.status_code == 200
+    assert r.headers["cache-control"] == "no-store"
     assert set(r.json().keys()) == {"demo_mode", "demo_accounts", "oauth_providers"}
-    assert set(r.json()["oauth_providers"]) == {"mattermost"}
+    assert set(r.json()["oauth_providers"]) == {"github", "google", "mattermost"}

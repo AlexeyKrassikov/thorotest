@@ -1,4 +1,5 @@
 window.TH_LOCALES.ru.workspace = {
+  oauth: { title: "Провайдеры входа", configured: "Настроен", notConfigured: "Не настроен в окружении", retry: "Повторить" },
   admin: {
     customFields: "Пользовательские поля", auditLog: "Журнал аудита", username: "Имя пользователя", actions: "Действия",
     usernamePlaceholder: "Имя пользователя *", passwordPlaceholder: "Пароль *", creating: "Создание…",

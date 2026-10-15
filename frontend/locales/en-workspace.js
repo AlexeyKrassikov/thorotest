@@ -1,4 +1,5 @@
 window.TH_LOCALES.en.workspace = {
+  oauth: { title: "Login providers", configured: "Configured", notConfigured: "Environment configuration missing", retry: "Retry" },
   admin: {
     customFields: "Custom Fields", auditLog: "Audit Log", username: "Username", actions: "Actions",
     usernamePlaceholder: "Username *", passwordPlaceholder: "Password *", creating: "Creating…",
