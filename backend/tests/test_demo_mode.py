@@ -70,6 +70,7 @@ def test_config_demo_mode_off_by_default(client, monkeypatch):
     assert r.status_code == 200
     assert r.headers["cache-control"] == "no-store"
     assert r.json() == {
+        "password_enabled": True,
         "demo_mode": False,
         "demo_accounts": [],
         "oauth_providers": {"github": False, "google": False, "mattermost": False},
@@ -117,5 +118,5 @@ def test_config_is_public_and_minimal(db, monkeypatch):
     app.dependency_overrides.clear()
     assert r.status_code == 200
     assert r.headers["cache-control"] == "no-store"
-    assert set(r.json().keys()) == {"demo_mode", "demo_accounts", "oauth_providers"}
+    assert set(r.json().keys()) == {"demo_mode", "demo_accounts", "oauth_providers", "password_enabled"}
     assert set(r.json()["oauth_providers"]) == {"github", "google", "mattermost"}

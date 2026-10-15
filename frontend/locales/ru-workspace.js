@@ -1,4 +1,17 @@
 window.TH_LOCALES.ru.workspace = {
+  security: {
+    authenticatorInactive: "Приложение-аутентификатор не подключено.",
+    status: "Статус аккаунта", pending: "Ожидает одобрения", active: "Одобрен", blocked: "Заблокирован",
+    pendingHint: "Ваш аккаунт ожидает одобрения администратора. После одобрения войдите снова.",
+    approve: "Одобрить", block: "Заблокировать", passwordLogin: "Вход по паролю",
+    passkeys: "Ключи доступа", keyName: "Название ключа", addPasskey: "Добавить passkey", usePasskey: "Использовать passkey",
+    trust30: "Доверять этому браузеру 30 дней", thisBrowser: "Этот браузер",
+    unsupported: "Ключи доступа недоступны в этом браузере или соединении.",
+    cancelled: "Подтверждение ключом доступа отменено или не завершено.",
+    deleteKey: "Удалить этот ключ доступа?", confirmIdentity: "Подтверждение личности", confirmed: "Личность подтверждена",
+    devices: "Доверенные браузеры", noDevices: "Нет доверенных браузеров", expires: "Действует до: {{date}}",
+    revoke: "Отозвать", revokeAll: "Отозвать доверие всем браузерам",
+  },
   oauth: { title: "Провайдеры входа", configured: "Настроен", notConfigured: "Не настроен в окружении", retry: "Повторить" },
   admin: {
     customFields: "Пользовательские поля", auditLog: "Журнал аудита", username: "Имя пользователя", actions: "Действия",

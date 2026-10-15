@@ -55,6 +55,13 @@ function AdminPage({ currentUser, onNav }) {
     }
   };
 
+  async function setStatus(user, status) {
+    try {
+      const updated = await window.TH_API.securityRequest(`/admin/users/${user.id}/status`, "PATCH", { status, role: user.role });
+      setUsers(current => current.map(item => item.id === user.id ? updated : item));
+    } catch (e) { alert(e.message); }
+  }
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setCreating(true);
@@ -135,6 +142,7 @@ function AdminPage({ currentUser, onNav }) {
                     <th style={{ padding: "8px 12px" }}>{t("login.email")}</th>
                     <th style={{ padding: "8px 12px" }}>{t("workspace.admin.username")}</th>
                     <th style={{ padding: "8px 12px" }}>{t("admin.role")}</th>
+                    <th style={{ padding: "8px 12px" }}>{t("workspace.security.status")}</th>
                     <th style={{ padding: "8px 12px" }}>{t("workspace.admin.actions")}</th>
                   </tr>
                 </thead>
@@ -154,14 +162,19 @@ function AdminPage({ currentUser, onNav }) {
                           {ROLES.map(r => <option key={r} value={r}>{t(`workspace.roles.${r}`)}</option>)}
                         </select>
                       </td>
+                      <td style={{ padding: "8px 12px" }}>{t(`workspace.security.${user.account_status || "active"}`)}</td>
                       <td style={{ padding: "8px 12px" }}>
                         {user.id !== currentUser?.id && (
+                          <>
+                          {user.account_status !== "active" && <button className="btn sm" onClick={() => setStatus(user, "active")}>{t("workspace.security.approve")}</button>}
+                          {user.account_status !== "blocked" && <button className="btn sm" onClick={() => setStatus(user, "blocked")}>{t("workspace.security.block")}</button>}
                           <button
                             onClick={() => handleDelete(user)}
                             style={{ color: "var(--danger, #e06c75)", background: "none", border: "none", cursor: "pointer", fontSize: 13 }}
                           >
                             {t("common.delete")}
                           </button>
+                          </>
                         )}
                       </td>
                     </tr>
@@ -186,11 +199,15 @@ function OAuthProvidersAdmin() {
   const [providers, setProviders] = React.useState(null);
   const [saving, setSaving] = React.useState(null);
   const [error, setError] = React.useState(null);
+  const [passwordLogin, setPasswordLogin] = React.useState(null);
   const names = { github: "GitHub", google: "Google", mattermost: "Mattermost" };
 
   const load = React.useCallback(async () => {
     setError(null);
-    try { setProviders(await window.TH_API.getOAuthProviders()); }
+    try {
+      setProviders(await window.TH_API.getOAuthProviders());
+      setPasswordLogin((await window.TH_API.securityRequest("/admin/login-settings")).password_enabled);
+    }
     catch (e) { setError(e.message); }
   }, []);
   React.useEffect(() => { load(); }, [load]);
@@ -216,6 +233,15 @@ function OAuthProvidersAdmin() {
       {error && <div role="alert" style={{ color: "var(--fail)", marginBottom: 12 }}>{error}</div>}
       {!providers && !error && <p>{t("common.loading")}</p>}
       {!providers && error && <button className="btn" onClick={load}>{t("workspace.oauth.retry")}</button>}
+      {passwordLogin !== null && <label style={{ display: "flex", gap: 10, alignItems: "center", padding: "16px 0", borderBottom: "1px solid var(--border)" }}>
+        <input type="checkbox" checked={passwordLogin} disabled={saving !== null} onChange={async e => {
+          const enabled = e.target.checked;
+          setSaving("password"); setError(null);
+          try { const result = await window.TH_API.securityRequest("/admin/login-settings", "PATCH", { password_enabled: enabled }); setPasswordLogin(result.password_enabled); }
+          catch (err) { setError(err.message); }
+          finally { setSaving(null); }
+        }} />{t("workspace.security.passwordLogin")}
+      </label>}
       {providers && Object.entries(names).map(([provider, name]) => (
         <div key={provider} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "16px 0", borderBottom: "1px solid var(--border)" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 140 }}>

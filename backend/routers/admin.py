@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, StrictBool
+from typing import Literal
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..db import get_db
 from .. import models
+from ..login_settings import lock_settings, ensure_active_admin, ensure_admin_login, password_enabled
 from ..schemas import UserOut, AdminUserCreate, UserRoleUpdate
 from ..auth_utils import require_role, hash_password, validate_password
 from ..audit_utils import (
@@ -29,6 +31,56 @@ class OAuthProviderSettingUpdate(BaseModel):
     enabled: StrictBool
 
 
+class AccountStatusUpdate(BaseModel):
+    status: Literal["active", "pending", "blocked"]
+    role: Literal["admin", "manager", "tester", "viewer"] | None = None
+
+
+@router.patch("/admin/users/{user_id}/status", response_model=UserOut)
+def set_account_status(user_id: int, payload: AccountStatusUpdate,
+                       db: Session = Depends(get_db), current_user: models.User = ADMIN_ONLY):
+    lock_settings(db)
+    user = db.get(models.User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    if user.account_status == "pending" and payload.status == "active" and payload.role is None:
+        raise HTTPException(422, "Choose a role before approving the account")
+    user.account_status = payload.status
+    if payload.role is not None:
+        user.role = payload.role
+    user.token_version += 1
+    user.security_version += 1
+    db.flush()
+    ensure_active_admin(db)
+    db.commit()
+    log_event("account.status_changed", actor_id=current_user.id, actor_email=current_user.email, target_type="user",
+              target_id=str(user_id), description=f"Account status changed to {payload.status}")
+    return user
+
+
+class LoginSettingsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    password_enabled: StrictBool
+
+
+@router.get("/admin/login-settings")
+def get_login_settings(db: Session = Depends(get_db), _: models.User = ADMIN_ONLY):
+    return {"password_enabled": password_enabled(db)}
+
+
+@router.patch("/admin/login-settings")
+def set_login_settings(payload: LoginSettingsUpdate, db: Session = Depends(get_db),
+                       current_user: models.User = ADMIN_ONLY):
+    row = lock_settings(db)
+    row.password_enabled = payload.password_enabled
+    db.flush()
+    ensure_admin_login(db, current_user)
+    db.commit()
+    log_event("login.settings_changed", actor_id=current_user.id, actor_email=current_user.email,
+              description=f"Password login enabled: {payload.password_enabled}")
+    return {"password_enabled": row.password_enabled}
+
+
 @router.get("/admin/oauth-providers")
 def list_oauth_providers(
     db: Session = Depends(get_db),
@@ -49,6 +101,7 @@ def update_oauth_provider(
     if provider not in OAUTH_PROVIDERS:
         raise HTTPException(status_code=404, detail="OAuth provider not found")
 
+    lock_settings(db)
     setting = db.query(models.OAuthProviderSetting).filter_by(provider=provider).first()
     if setting is None:
         try:
@@ -63,6 +116,8 @@ def update_oauth_provider(
             setting.enabled = payload.enabled
     else:
         setting.enabled = payload.enabled
+    db.flush()
+    ensure_admin_login(db)
     db.commit()
 
     log_event(
@@ -132,10 +187,13 @@ def change_role(
     """Change a user's role — admin only."""
     if payload.role not in VALID_ROLES:
         raise HTTPException(status_code=422, detail=f"Invalid role. Must be one of: {sorted(VALID_ROLES)}")
+    lock_settings(db)
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user.role = payload.role
+    db.flush()
+    ensure_active_admin(db)
     db.commit()
     db.refresh(user)
     log_event(
@@ -158,11 +216,14 @@ def delete_user(
     """Delete a user — admin only. Cannot delete self."""
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    lock_settings(db)
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     deleted_email = user.email   # capture before delete
     db.delete(user)
+    db.flush()
+    ensure_active_admin(db)
     db.commit()
     log_event(
         EVT_USER_DELETED,

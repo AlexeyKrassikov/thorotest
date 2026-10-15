@@ -271,6 +271,51 @@ class User(Base):
     # Incremented on logout / forced revocation; JWTs carry the version at issue
     # time and are rejected once it no longer matches (see auth_utils).
     token_version = Column(Integer, default=0, nullable=False)
+    account_status = Column(String(16), default="active", server_default="active", nullable=False)
+    security_version = Column(Integer, default=0, server_default="0", nullable=False)
+
+
+class LoginSettings(Base):
+    __tablename__ = "login_settings"
+    id = Column(Integer, primary_key=True)
+    password_enabled = Column(Boolean, default=True, nullable=False)
+    revision = Column(Integer, default=0, nullable=False)
+
+
+class AuthChallenge(Base):
+    __tablename__ = "auth_challenges"
+    id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    purpose = Column(String(32), nullable=False)
+    value = Column(Text, nullable=False)
+    expires_at = Column(BigInteger, nullable=False)
+    token_version = Column(Integer, nullable=False)
+    primary_method = Column(String(32), nullable=False)
+    auth_time = Column(BigInteger, nullable=False)
+    used = Column(Boolean, default=False, nullable=False)
+
+
+class Passkey(Base):
+    __tablename__ = "passkeys"
+    id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    credential_id = Column(String(1400), nullable=False, unique=True)
+    public_key = Column(Text, nullable=False)
+    sign_count = Column(BigInteger, default=0, nullable=False)
+    name = Column(String(100), nullable=False)
+    created_at = Column(BigInteger, nullable=False)
+
+
+class TrustedDevice(Base):
+    __tablename__ = "trusted_devices"
+    id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    passkey_id = Column(String(64), nullable=False)
+    secret_hash = Column(String(64), nullable=False, unique=True)
+    security_version = Column(Integer, nullable=False)
+    name = Column(String(100), nullable=False)
+    created_at = Column(BigInteger, nullable=False)
+    expires_at = Column(BigInteger, nullable=False)
 
 
 class Integration(Base):

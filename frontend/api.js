@@ -59,6 +59,7 @@
 
   window.TH_API = {
     setToken,
+    clearToken,
     authHeaders,
 
     async confirmOAuthLink(pendingToken, password) {
@@ -124,6 +125,7 @@
         throw new Error(errorMessage(err.detail || t("api.loginFailed")));
       }
       const data = await res.json();
+      if (data.status === "pending_approval") return { __pending_approval: true };
       if (data.status === "2fa_required") {
         return { __2fa_required: true, partialToken: data.partial_token };
       }
@@ -146,6 +148,16 @@
       const data = await res.json();
       setToken(data.access_token);
       return data.user;
+    },
+
+    async securityRequest(path, method = "GET", body) {
+      const res = await fetch(BASE + "/api" + path, {
+        method, headers: authHeaders(), ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(errorMessage(data.detail || t("api.requestFailed")));
+      if (data.access_token) setToken(data.access_token);
+      return data;
     },
 
     async get2FASetup() {

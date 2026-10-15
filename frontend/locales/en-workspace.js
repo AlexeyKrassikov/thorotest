@@ -1,4 +1,17 @@
 window.TH_LOCALES.en.workspace = {
+  security: {
+    authenticatorInactive: "Authenticator app is not enabled.",
+    status: "Account status", pending: "Pending approval", active: "Approved", blocked: "Blocked",
+    pendingHint: "Your account is awaiting administrator approval. Sign in again after approval.",
+    approve: "Approve", block: "Block", passwordLogin: "Password login",
+    passkeys: "Passkeys", keyName: "Passkey name", addPasskey: "Add passkey", usePasskey: "Use passkey",
+    trust30: "Trust this browser for 30 days", thisBrowser: "This browser",
+    unsupported: "Passkeys are not available in this browser or connection.",
+    cancelled: "Passkey confirmation was cancelled or could not be completed.",
+    deleteKey: "Delete this passkey?", confirmIdentity: "Confirm identity", confirmed: "Identity confirmed",
+    devices: "Trusted browsers", noDevices: "No trusted browsers", expires: "Expires: {{date}}",
+    revoke: "Revoke", revokeAll: "Revoke all browsers",
+  },
   oauth: { title: "Login providers", configured: "Configured", notConfigured: "Environment configuration missing", retry: "Retry" },
   admin: {
     customFields: "Custom Fields", auditLog: "Audit Log", username: "Username", actions: "Actions",

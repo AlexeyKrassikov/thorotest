@@ -116,7 +116,7 @@ test.describe('Suite P15 — TOTP 2FA UI', () => {
 
     // Step 2: submit any code (stub accepts it)
     await page.fill('input[placeholder="000000"]', '123456');
-    await page.getByRole('button', { name: 'Verify' }).click();
+    await page.locator('form').getByRole('button', { name: 'Verify', exact: true }).click();
 
     // Step 3: recovery codes should render
     await page.waitForSelector('text=Save your recovery codes', { timeout: 5000 });

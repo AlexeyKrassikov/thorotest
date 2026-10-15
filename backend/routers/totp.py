@@ -20,6 +20,8 @@ from ..schemas import (
     TwoFARegeneratePayload,
 )
 from ..auth_utils import create_access_token, get_current_user
+from ..auth_policy import login_challenge, session_result, methods, now, require_recent
+from ..trusted_devices import revoke_trust
 from ..audit_utils import (
     log_event,
     EVT_LOGIN_SUCCESS,
@@ -75,10 +77,9 @@ def complete_2fa_login(
     ip = request.client.host if request.client else None
 
     # Validate partial token (raises 401 for wrong scope or expired JWT)
-    user_id = decode_partial_token(payload.partial_token)
-
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user or not user.totp_enabled:
+    pending, user = login_challenge(db, payload.partial_token)
+    user_id = user.id
+    if not methods(db, user):
         raise HTTPException(status_code=401, detail="Invalid session")
 
     # Rate limit check (read only — failure recorded below on bad code)
@@ -113,18 +114,15 @@ def complete_2fa_login(
             )
             raise HTTPException(status_code=400, detail="Invalid code")
         # Mark used and commit before returning (atomic single-use)
-        matched.used = True
-        db.commit()
-        log_event(
-            EVT_2FA_RECOVERY_USED,
-            actor_id=user.id,
-            actor_email=user.email,
-            description=f"{user.email} logged in with a recovery code",
-            ip_address=ip,
-        )
+        changed = db.query(models.TotpRecoveryCode).filter_by(id=matched.id, used=False).update(
+            {"used": True}, synchronize_session=False)
+        if changed != 1:
+            db.rollback()
+            raise HTTPException(400, "Invalid code")
+        revoke_trust(db, user)
     else:
         # TOTP branch
-        if not verify_totp_code(user.totp_secret, code):
+        if not user.totp_enabled or not verify_totp_code(user.totp_secret, code):
             record_2fa_failure(user_id)
             log_event(
                 EVT_2FA_FAIL,
@@ -136,6 +134,11 @@ def complete_2fa_login(
             )
             raise HTTPException(status_code=400, detail="Invalid code")
 
+    pending, user = login_challenge(db, payload.partial_token, consume=True)
+    db.commit()
+    if len(code) == 9 and "-" in code:
+        log_event(EVT_2FA_RECOVERY_USED, actor_id=user.id, actor_email=user.email,
+                  description="Recovery code used", ip_address=ip)
     # Issue full JWT
     log_event(
         EVT_LOGIN_SUCCESS,
@@ -144,12 +147,7 @@ def complete_2fa_login(
         description=f"{user.email} completed 2FA login",
         ip_address=ip,
     )
-    token = create_access_token(user.id, user.token_version)
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": _user_dict(user),
-    }
+    return session_result(user, auth_time=pending.auth_time, mfa_time=now(), primary_method=pending.primary_method)
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +176,7 @@ def get_2fa_setup(
 @router.post("/me/2fa/enable")
 def enable_2fa(
     payload: TwoFAEnablePayload,
+    request: Request,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -188,6 +187,7 @@ def enable_2fa(
     hashed recovery codes, and returns the 10 plaintext codes for one-time display.
     On failure: returns 400; user.totp_enabled remains False.
     """
+    require_recent(request, db, current_user)
     if current_user.totp_enabled:
         raise HTTPException(status_code=400, detail="2FA already enabled")
 
@@ -231,6 +231,7 @@ def enable_2fa(
 @router.delete("/me/2fa/disable")
 def disable_2fa(
     payload: TwoFADisablePayload,
+    request: Request,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -240,6 +241,7 @@ def disable_2fa(
     Atomically clears totp_secret, sets totp_enabled=False, and deletes all
     recovery codes for the user. A wrong code leaves 2FA active.
     """
+    require_recent(request, db, current_user, fresh_factor=False)
     if not current_user.totp_enabled:
         raise HTTPException(status_code=400, detail="2FA not enabled")
 
@@ -249,7 +251,9 @@ def disable_2fa(
     # Atomic clear
     current_user.totp_secret = None
     current_user.totp_enabled = False
-    db.query(models.TotpRecoveryCode).filter_by(user_id=current_user.id).delete()
+    if not db.query(models.Passkey).filter_by(user_id=current_user.id).first():
+        db.query(models.TotpRecoveryCode).filter_by(user_id=current_user.id).delete()
+    revoke_trust(db, current_user)
     db.commit()
 
     log_event(
@@ -269,6 +273,7 @@ def disable_2fa(
 @router.post("/me/2fa/recovery-codes/regenerate")
 def regenerate_recovery_codes(
     payload: TwoFARegeneratePayload,
+    request: Request,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -284,6 +289,8 @@ def regenerate_recovery_codes(
     if not verify_totp_code(current_user.totp_secret, payload.totp_code):
         raise HTTPException(status_code=400, detail="Invalid code")
 
+    require_recent(request, db, current_user, fresh_factor=False)
+    revoke_trust(db, current_user)
     # Delete old codes and insert fresh set
     db.query(models.TotpRecoveryCode).filter_by(user_id=current_user.id).delete()
     now = datetime.now(timezone.utc).isoformat()

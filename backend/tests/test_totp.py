@@ -506,7 +506,8 @@ def test_regenerate_invalidates_old(auth_client, db):
     totp_utils._2fa_rate_store.reset()
 
     # Create a valid partial token for the enrolled user
-    partial_token = create_partial_token(user.id)
+    from backend.auth_policy import begin_login
+    partial_token = begin_login(db, user)["partial_token"]
     resp2 = client.post("/api/auth/login/2fa", json={
         "partial_token": partial_token,
         "code": old_plain,

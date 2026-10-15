@@ -183,17 +183,16 @@ def _user_dict(user: models.User) -> dict:
 # Core shared logic
 # ---------------------------------------------------------------------------
 
-def issue_session_or_2fa(user: models.User, ip: str | None) -> dict:
+def issue_session_or_2fa(user: models.User, ip: str | None, request=None, primary_method="password") -> dict:
     """
     Uniform 2FA chokepoint for OAuth session issuance.
     If the user has TOTP enabled, return a 2fa_required partial-token response
     (same shape/semantics as auth.py:57-60). Otherwise issue a full session.
     Returns the {"status": "ok", "token": ...} shape used by upsert_oauth_user.
     """
-    if user.totp_enabled:
-        from ..totp_utils import create_partial_token
-        return {"status": "2fa_required", "partial_token": create_partial_token(user.id)}
-    return {"status": "ok", "token": create_access_token(user.id, user.token_version), "user": _user_dict(user)}
+    from sqlalchemy.orm import object_session
+    from ..auth_policy import begin_login
+    return begin_login(object_session(user), user, request, primary_method)
 
 
 def upsert_oauth_user(
@@ -206,6 +205,7 @@ def upsert_oauth_user(
     ip: str | None,
     *,
     allow_provisioning: bool = False,
+    request: Request | None = None,
 ) -> dict:
     """
     Shared OAuth user resolution logic for all providers.
@@ -249,7 +249,7 @@ def upsert_oauth_user(
             description=f"{user.email} logged in via {provider} OAuth",
             ip_address=ip,
         )
-        return issue_session_or_2fa(user, ip)
+        return issue_session_or_2fa(user, ip, request, provider)
 
     # 4. Same-email match — require explicit confirmation
     existing = db.query(models.User).filter(models.User.email == email).first()
@@ -288,6 +288,7 @@ def upsert_oauth_user(
         hashed_password=OAUTH_ONLY_SENTINEL,   # OAuth-only accounts cannot use local login
         display_name=display_name,
         role="viewer",
+        account_status="pending" if provider == "mattermost" else "active",
     )
     db.add(user)
     db.flush()   # get user.id before creating identity
@@ -316,7 +317,7 @@ def upsert_oauth_user(
         description=f"{user.email} logged in via {provider} OAuth",
         ip_address=ip,
     )
-    return issue_session_or_2fa(user, ip)
+    return issue_session_or_2fa(user, ip, request, provider)
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +402,7 @@ async def mattermost_callback(request: Request, db: Session = Depends(get_db),
             verified=user.get("email_verified") is True,
             display_name=user.get("username"),
             ip=request.client.host if request.client else None, allow_provisioning=True,
+            request=request,
         )
     except HTTPException:
         return reject("account_rejected")
@@ -408,6 +410,8 @@ async def mattermost_callback(request: Request, db: Session = Depends(get_db),
         # Never log token responses, authorization codes, or provider secrets.
         logger.warning("Mattermost OAuth exchange or profile validation failed")
         return finish(failed)
+    if result["status"] == "pending_approval":
+        return finish("pending-approval=1")
     if result["status"] == "2fa_required":
         return finish(f"oauth-2fa={result['partial_token']}")
     if result["status"] == "ok":
@@ -524,6 +528,7 @@ async def github_callback(
             verified=bool(primary_email_obj),
             display_name=display_name,
             ip=ip,
+            request=request,
         )
     except HTTPException as exc:
         logger.warning("github upsert rejected: %s", exc.detail)
@@ -619,6 +624,7 @@ async def google_callback(
             verified=bool(claims.get("email_verified")),
             display_name=claims.get("name"),
             ip=ip,
+            request=request,
         )
     except HTTPException as exc:
         logger.warning("google upsert rejected: %s", exc.detail)
@@ -667,6 +673,8 @@ def confirm_link(payload: ConfirmLinkPayload, db: Session = Depends(get_db), req
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
     if not user:
         raise HTTPException(status_code=400, detail="Link session expired. Please try signing in again.")
+    if user.account_status != "active":
+        raise HTTPException(403, "Account is not approved")
 
     # OAuth-only accounts carry a sentinel instead of a real hash. passlib raises
     # UnknownHashError on it rather than returning False, which surfaced as an
@@ -722,12 +730,4 @@ def confirm_link(payload: ConfirmLinkPayload, db: Session = Depends(get_db), req
     )
 
     ip = request.client.host if request and request.client else None
-    if user.totp_enabled:
-        from ..totp_utils import create_partial_token
-        return {"status": "2fa_required", "partial_token": create_partial_token(user.id)}
-
-    return {
-        "access_token": create_access_token(user.id, user.token_version),
-        "token_type": "bearer",
-        "user": _user_dict(user),
-    }
+    return issue_session_or_2fa(user, ip, request, row.provider)

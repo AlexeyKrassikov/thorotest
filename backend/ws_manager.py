@@ -27,12 +27,15 @@ class RunWSManager:
     def __init__(self):
         self.connections: Dict[str, List[WebSocket]] = {}
         self.running_tasks: Dict[str, asyncio.Task] = {}
+        self.authorizers = {}
 
-    async def connect(self, run_id: str, websocket: WebSocket):
+    async def connect(self, run_id: str, websocket: WebSocket, authorize=None):
         await websocket.accept()
         self.connections.setdefault(run_id, []).append(websocket)
+        self.authorizers[websocket] = authorize
 
     def disconnect(self, run_id: str, websocket: WebSocket):
+        self.authorizers.pop(websocket, None)
         conns = self.connections.get(run_id, [])
         if websocket in conns:
             conns.remove(websocket)
@@ -42,11 +45,16 @@ class RunWSManager:
         dead = []
         for ws in conns:
             try:
+                authorize = self.authorizers.get(ws)
+                if authorize and not authorize():
+                    await ws.close(code=1008)
+                    dead.append(ws)
+                    continue
                 await ws.send_json(message)
             except Exception:
                 dead.append(ws)
         for ws in dead:
-            conns.remove(ws)
+            self.disconnect(run_id, ws)
 
     async def start_simulation(self, run_id: str):
         if not DEMO_MODE:

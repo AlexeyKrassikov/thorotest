@@ -61,12 +61,13 @@ def test_redirect_and_public_config(client, configured):
     assert "client-secret" not in config.text
 
 
-def test_first_login_is_viewer_and_state_is_single_use(client, db, configured):
+def test_first_login_is_pending_and_state_is_single_use(client, db, configured):
     state = start(client)
     response, remote = exchange(client, state)
-    assert "#token=" in response.headers["location"]
+    assert "#pending-approval=" in response.headers["location"]
     user = db.query(models.User).filter_by(email="person@example.test").one()
     assert user.role == "viewer"
+    assert user.account_status == "pending"
     assert user.hashed_password == "!"
     assert remote.post.call_args.args[0] == "https://chat.example.test/oauth/access_token"
     assert remote.get.call_args.args[0] == "https://chat.example.test/api/v4/users/me"
@@ -97,6 +98,7 @@ def test_returning_user_keeps_2fa(client, db, configured):
     exchange(client, start(client))
     user = db.query(models.User).filter_by(email="person@example.test").one()
     user.totp_enabled = True
+    user.account_status = "active"
     db.commit()
     response, _ = exchange(client, start(client))
     assert "#oauth-2fa=" in response.headers["location"]
@@ -152,6 +154,6 @@ def test_mattermost_does_not_require_email_verification(client, db, configured, 
     if verification is not None:
         profile["email_verified"] = verification
     response, _ = exchange(client, start(client), profile)
-    assert "#token=" in response.headers["location"]
+    assert "#pending-approval=" in response.headers["location"]
     user = db.query(models.User).filter_by(email="person@example.test").one()
     assert user.role == "viewer"

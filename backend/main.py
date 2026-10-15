@@ -40,9 +40,10 @@ from .seed import init_db, seed_db
 from .ws_manager import manager
 from .notifications import notif_manager
 from .runtime_state import runtime_state
-from .auth_utils import get_current_user, user_from_websocket_ticket
+from .auth_utils import get_current_user, user_from_websocket_ticket, connection_authorizer
 from .gql_schema import graphql_router
 from .routers import folders, tests, runs, plans, pipelines, activity, auth, projects, categories, defects, requirements, integrations, tokens, webhooks, favorites, import_, attachments, admin, ai, notifications, audit_log, oauth, totp, ci, history, sync, about, custom_fields
+from .routers import passkeys
 
 # Serve the built frontend (frontend/dist — produced by `npm run build`).
 # Fall back to the source dir so the API can still boot without a build
@@ -123,6 +124,8 @@ def _run_migrations():
             _add_column("users", "totp_secret")
             _add_column("users", "totp_enabled", ddl_type="BOOLEAN", default="FALSE")
             _add_column("users", "token_version", ddl_type="INTEGER", default="0")
+            _add_column("users", "account_status", default="'active'")
+            _add_column("users", "security_version", ddl_type="INTEGER", default="0")
 
         if "webhooks" in tables:
             _add_column("webhooks", "hmac_secret")
@@ -306,10 +309,12 @@ async def public_config(response: Response, db: Session = Depends(get_db)):
     logins so visitors can sign in; it is an empty list otherwise.
     """
     from .ws_manager import DEMO_MODE  # read at call time so tests can patch it
+    from .login_settings import password_enabled
 
     response.headers["Cache-Control"] = "no-store"
     return {
         "demo_mode": DEMO_MODE,
+        "password_enabled": password_enabled(db),
         "demo_accounts": DEMO_ACCOUNTS if DEMO_MODE else [],
         "oauth_providers": {
             provider: status["enabled"] and status["configured"]
@@ -394,6 +399,7 @@ app.include_router(requirements.router, prefix="/api")
 app.include_router(integrations.router, prefix="/api")
 app.include_router(tokens.router, prefix="/api")
 app.include_router(webhooks.router, prefix="/api")
+app.include_router(passkeys.router, prefix="/api")
 app.include_router(favorites.router, prefix="/api")
 app.include_router(import_.router, prefix="/api")
 app.include_router(attachments.router, prefix="/api")
@@ -689,10 +695,14 @@ async def run_ws(run_id: str, websocket: WebSocket, ticket: str = "", db: Sessio
     if user is None:
         await websocket.close(code=1008)
         return
-    await manager.connect(run_id, websocket)
+    authorized = connection_authorizer(db, user)
+    await manager.connect(run_id, websocket, authorized)
     try:
         run = db.query(models.Run).filter(models.Run.id == run_id).first()
         if run:
+            if not authorized():
+                await websocket.close(code=1008)
+                return
             await websocket.send_json({
                 "event": "state",
                 "status": run.status,
@@ -707,9 +717,14 @@ async def run_ws(run_id: str, websocket: WebSocket, ticket: str = "", db: Sessio
 
         while True:
             data = await websocket.receive_json()
+            if not authorized():
+                await websocket.close(code=1008)
+                break
             if data.get("action") == "start" and run and run.status == "running":
                 await manager.start_simulation(run_id)
     except WebSocketDisconnect:
+        pass
+    finally:
         manager.disconnect(run_id, websocket)
 
 
@@ -720,12 +735,19 @@ async def notifications_ws(websocket: WebSocket, ticket: str = "", db: Session =
     if user is None:
         await websocket.close(code=1008)
         return
-    await notif_manager.connect(user.id, websocket)
+    user_id = user.id
+    authorized = connection_authorizer(db, user)
+    await notif_manager.connect(user_id, websocket, authorized)
     try:
         while True:
             await websocket.receive_text()  # keep-alive; client sends pings
+            if not authorized():
+                await websocket.close(code=1008)
+                break
     except WebSocketDisconnect:
-        notif_manager.disconnect(user.id, websocket)
+        pass
+    finally:
+        notif_manager.disconnect(user_id, websocket)
 
 
 # Serve frontend (must be last — catches all unmatched paths)

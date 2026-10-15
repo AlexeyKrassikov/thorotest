@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import os
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
@@ -130,11 +131,14 @@ def verify_and_update(plain: str, hashed: str) -> Tuple[bool, Optional[str]]:
     return pwd_context.verify_and_update(plain, hashed)
 
 
-def create_access_token(user_id: int, token_version: int = 0) -> str:
+def create_access_token(user_id: int, token_version: int = 0, *, auth_time: int | None = None,
+                        mfa_time: int = 0, primary_method: str = "password") -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=TOKEN_EXPIRE_DAYS)
     payload = {
         "sub": str(user_id), "scope": "session", "exp": expire,
         "tv": int(token_version or 0),
+        "auth_time": int(time.time()) if auth_time is None else auth_time,
+        "mfa_time": mfa_time, "primary_method": primary_method,
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -182,7 +186,7 @@ def _user_from_api_token(raw: str, db: Session, method: str) -> Optional[models.
         return None
 
     user = db.query(models.User).filter(models.User.id == tok.user_id).first()
-    if user is None:
+    if user is None or user.account_status != "active":
         return None
     if int(tok.token_version or 0) != int(user.token_version or 0):
         return None
@@ -220,7 +224,7 @@ def get_optional_user(
     except (PyJWTError, ValueError, TypeError):
         return None
     user = db.query(models.User).filter(models.User.id == user_id).first()
-    if user is None:
+    if user is None or user.account_status != "active":
         return None
     # Token revocation: a token is valid only while its embedded version matches
     # the user's current token_version. logout / "log out everywhere" bumps the
@@ -250,7 +254,7 @@ def user_from_bearer_token(token: str, db: Session) -> Optional[models.User]:
     except (PyJWTError, ValueError, TypeError):
         return None
     user = db.query(models.User).filter(models.User.id == user_id).first()
-    if user is None:
+    if user is None or user.account_status != "active":
         return None
     if int(payload.get("tv", 0)) != int(user.token_version or 0):
         return None
@@ -269,7 +273,7 @@ def user_from_websocket_ticket(ticket: str, db: Session) -> Optional[models.User
     except (PyJWTError, ValueError, TypeError):
         return None
     user = db.query(models.User).filter(models.User.id == user_id).first()
-    if user is None:
+    if user is None or user.account_status != "active":
         return None
     if int(payload.get("tv", 0)) != int(user.token_version or 0):
         return None
@@ -282,6 +286,19 @@ def get_current_user(
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
     return user
+
+
+def connection_authorizer(db, user):
+    user_id, version = user.id, user.token_version
+
+    def authorized():
+        # A WS dependency lives for the connection; end its old read transaction
+        # so a block/logout committed by another worker is visible before delivery.
+        db.rollback()
+        return db.query(models.User.id).filter_by(
+            id=user_id, token_version=version, account_status="active").first() is not None
+
+    return authorized
 
 
 def require_role(*allowed_roles: str):

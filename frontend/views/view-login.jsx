@@ -1,6 +1,6 @@
 // ThoroTest — login page
 
-function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
+function LoginPage({ onLogin, oauthError, onDismissOAuthError, pendingApproval }) {
   const { t, lang, setLanguage } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +16,7 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
   // can sign in; empty on a normal deploy.
   const [demoAccounts, setDemoAccounts] = useState([]);
   const [oauthProviders, setOAuthProviders] = useState({});
+  const [passwordEnabled, setPasswordEnabled] = useState(false);
 
   useEffect(() => {
     fetch("/api/config")
@@ -23,6 +24,8 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
       .then(c => {
         setDemoAccounts(Array.isArray(c.demo_accounts) ? c.demo_accounts : []);
         setOAuthProviders(c.oauth_providers || {});
+        setPasswordEnabled(c.password_enabled !== false);
+        if (c.password_enabled === false) setMode("login");
       })
       .catch(() => {});
   }, []);
@@ -90,6 +93,7 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
         </div>
 
         <h2 className="login-title">{t("login.title")}</h2>
+        {pendingApproval && <div role="status" style={{ marginBottom: 16 }}>{t("workspace.security.pendingHint")}</div>}
         <select className="login-input" aria-label={t("settings.profileSection.language")} value={lang}
           onChange={e => setLanguage(e.target.value)} style={{ marginBottom: 12 }}>
           {window.TH_I18N.getSupportedLanguages().map(code => (
@@ -165,7 +169,7 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
           </form>
         )}
 
-        {mode === "login" && (
+        {mode === "login" && passwordEnabled && (
         <form onSubmit={handleSubmit} className="login-form">
           {resetDone && (
             <div style={{ fontSize: 13, color: "var(--pass, #4ade80)", marginBottom: 12 }}>
@@ -207,7 +211,7 @@ function LoginPage({ onLogin, oauthError, onDismissOAuthError }) {
         </form>
         )}
 
-        {mode === "login" && demoAccounts.length > 0 && (
+        {mode === "login" && passwordEnabled && demoAccounts.length > 0 && (
           <div className="demo-accounts" role="group" aria-label={t("login.demoAccounts")} style={{
             marginTop: 16, padding: 12, borderRadius: 10,
             border: "1px solid var(--warn, #f59e0b)",
@@ -393,6 +397,26 @@ function TwoFAStep({ partialToken, onVerified, onBack }) {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [retryAfter, setRetryAfter] = useState(0);
+  const [trustDevice, setTrustDevice] = useState(false);
+  const [available, setAvailable] = useState([]);
+  useEffect(() => {
+    window.TH_API.securityRequest("/auth/second-factor/methods", "POST", { partial_token: partialToken })
+      .then(result => setAvailable(result.methods)).catch(err => setError(err.message));
+  }, [partialToken]);
+
+  async function usePasskey() {
+    setLoading(true); setError(null);
+    try {
+      const start = await window.TH_API.securityRequest("/auth/passkeys/options", "POST", { partial_token: partialToken });
+      const credential = await window.TH_PASSKEYS.ceremony(start.options, false);
+      const result = await window.TH_API.securityRequest("/auth/passkeys/verify", "POST", {
+        partial_token: partialToken, challenge_id: start.challenge_id, credential,
+        trust_device: trustDevice, name: t("workspace.security.thisBrowser"),
+      });
+      onVerified(result.user);
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -432,6 +456,15 @@ function TwoFAStep({ partialToken, onVerified, onBack }) {
         </div>
 
         <h2 className="login-title">{t("login.twoFactor")}</h2>
+        {available.includes("passkey") && <div style={{ marginBottom: 16 }}>
+          <button type="button" className="btn primary login-btn" disabled={loading} onClick={usePasskey}>
+            {t("workspace.security.usePasskey")}
+          </button>
+          <label style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center" }}>
+            <input type="checkbox" checked={trustDevice} onChange={e => setTrustDevice(e.target.checked)} />
+            {t("workspace.security.trust30")}
+          </label>
+        </div>}
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
           {t("login.codeHint")}
         </p>

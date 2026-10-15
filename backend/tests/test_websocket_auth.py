@@ -50,6 +50,20 @@ def test_run_ws_accepts_valid_ticket(client, ws_user):
     assert _connect(client, f"/ws/runs/R-WS?ticket={ticket}") is True
 
 
+def test_run_ws_does_not_send_initial_state_after_block(client, db, ws_user, monkeypatch):
+    from backend.main import manager
+    original = manager.connect
+
+    async def connect_then_block(*args, **kwargs):
+        await original(*args, **kwargs)
+        ws_user.account_status = "blocked"
+        db.commit()
+
+    monkeypatch.setattr(manager, "connect", connect_then_block)
+    ticket = create_websocket_ticket(ws_user.id, ws_user.token_version)
+    assert _connect(client, f"/ws/runs/R-WS?ticket={ticket}") is False
+
+
 def test_ws_ticket_endpoint_returns_narrow_credential(client, db, ws_user):
     response = client.post("/api/auth/ws-ticket")
     assert response.status_code == 200

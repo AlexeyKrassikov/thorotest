@@ -360,6 +360,7 @@ class CommentCreate(BaseModel):
 
 
 class UserOut(BaseModel):
+    account_status: str = "active"
     id: int
     username: str
     email: str

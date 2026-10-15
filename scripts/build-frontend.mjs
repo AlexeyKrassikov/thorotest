@@ -39,6 +39,7 @@ const jsxEntries = [
 const jsEntries = [
   path.join(srcDir, "react-globals.js"),
   path.join(srcDir, "api.js"),
+  path.join(srcDir, "passkeys.js"),
   path.join(srcDir, "data.js"),
   path.join(srcDir, "i18n.js"),
   ...listFiles(path.join(srcDir, "locales"), ".js"),

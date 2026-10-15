@@ -291,6 +291,7 @@ function AuthRoot() {
   const [pendingOAuth, setPendingOAuth] = useState(null);
   const [pending2FA, setPending2FA] = useState(null);
   const [oauthError, setOauthError] = useState(null);
+  const [pendingApproval, setPendingApproval] = useState(false);
 
   useEffect(() => {
     async function checkAuth() {
@@ -302,6 +303,13 @@ function AuthRoot() {
       const partialTok = params.get("oauth-2fa");
       const errKind = params.get("oauth-error");
       const errProvider = params.get("provider");
+      if (params.get("pending-approval")) {
+        window.TH_API.clearToken();
+        setPendingApproval(true);
+        window.location.hash = "";
+        setAuthChecked(true);
+        return;
+      }
 
       if (token) {
         window.TH_API.setToken(token);
@@ -381,7 +389,9 @@ function AuthRoot() {
   if (!currentUser) {
     return (
       <LoginPage
+        pendingApproval={pendingApproval}
         onLogin={async (user) => {
+          if (user && user.__pending_approval) { setPendingApproval(true); return; }
           if (user && user.__2fa_required) {
             setPending2FA(user.partialToken);
             return;

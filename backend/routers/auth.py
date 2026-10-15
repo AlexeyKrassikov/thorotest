@@ -21,6 +21,8 @@ from ..auth_utils import (
     verify_password,
 )
 from ..totp_utils import create_partial_token
+from ..auth_policy import begin_login
+from ..login_settings import password_enabled
 from ..audit_utils import (
     log_event,
     EVT_LOGIN_SUCCESS, EVT_LOGIN_FAIL, EVT_LOGOUT,
@@ -86,6 +88,8 @@ def _registration_open() -> bool:
 
 @router.post("/auth/register", response_model=UserOut, status_code=201)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
+    if not password_enabled(db):
+        raise HTTPException(403, "Password login is disabled")
     if not _registration_open():
         raise HTTPException(
             status_code=403,
@@ -112,12 +116,14 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/auth/login")
 def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
+    if not password_enabled(db):
+        raise HTTPException(403, "Password login is disabled")
     user = db.query(models.User).filter(models.User.email == payload.email).first()
     ip = request.client.host if request.client else None
     rate_key = _login_key(ip, payload.email)
     _check_login_rate(rate_key)
     ok, new_hash = (False, None)
-    if user:
+    if user and user.hashed_password != "!":
         ok, new_hash = verify_and_update(payload.password, user.hashed_password)
     if not user or not ok:
         _record_login_failure(rate_key)
@@ -142,23 +148,7 @@ def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)):
         ip_address=ip,
     )
     # 2FA chokepoint: if enabled, issue a partial token instead of a full JWT
-    if user.totp_enabled:
-        partial = create_partial_token(user.id)
-        return {"status": "2fa_required", "partial_token": partial}
-
-    token = create_access_token(user.id, user.token_version)
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "display_name": user.display_name,
-            "role": user.role,
-            "language": user.language or "en",
-        },
-    }
+    return begin_login(db, user, request, "password")
 
 
 @router.post("/auth/logout", status_code=204)
@@ -271,6 +261,8 @@ def forgot_password(
     an account — so the endpoint cannot be used to enumerate users. Reuses the
     login throttling window per (ip, email) to bound abuse.
     """
+    if not password_enabled(db):
+        raise HTTPException(403, "Password login is disabled")
     ip = request.client.host if request.client else None
     key = "pwreset|" + _login_key(ip, payload.email)
     _check_login_rate(key)
@@ -310,6 +302,8 @@ def forgot_password(
 
 @router.post("/auth/reset-password", status_code=204)
 def reset_password(request: Request, payload: ResetPasswordIn, db: Session = Depends(get_db)):
+    if not password_enabled(db):
+        raise HTTPException(403, "Password login is disabled")
     validate_password(payload.new_password)
     ip = request.client.host if request.client else None
     token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
@@ -327,6 +321,8 @@ def reset_password(request: Request, payload: ResetPasswordIn, db: Session = Dep
     user.hashed_password = hash_password(payload.new_password)
     # Bump token_version: revokes every previously issued JWT for this user.
     user.token_version = (user.token_version or 0) + 1
+    from ..trusted_devices import revoke_trust
+    revoke_trust(db, user)
     prt.used = True
     db.commit()
     log_event(

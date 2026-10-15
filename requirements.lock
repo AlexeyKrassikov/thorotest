@@ -10,6 +10,7 @@ anyio==4.14.2
 argon2-cffi==25.1.0
 argon2-cffi-bindings==25.1.0
 certifi==2026.6.17
+cbor2==6.1.5
 cffi==2.1.0
 click==8.4.2
 cross-web==0.7.0
@@ -45,6 +46,9 @@ Pygments==2.20.0
 PyMySQL==1.2.0
 PyOTP==2.10.0
 PyJWT==2.13.0
+pyasn1==0.6.4
+pyasn1-modules==0.4.2
+pyOpenSSL==26.4.0
 pytest==9.1.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
@@ -64,3 +68,4 @@ uvicorn==0.51.0
 uvloop==0.22.1
 watchfiles==1.2.0
 websockets==16.1.1
+webauthn==3.0.1

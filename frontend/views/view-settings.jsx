@@ -726,7 +726,7 @@ function SecurityTab({ currentUser }) {
       {!status.enabled ? (
         <div>
           <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-            {t("workspace.settings.notEnabled")}
+            {t("workspace.security.authenticatorInactive")}
           </p>
           <button className="btn primary" onClick={() => setDialog("enroll")}>
             {t("workspace.settings.enable2fa")}
@@ -761,6 +761,7 @@ function SecurityTab({ currentUser }) {
       {dialog === "regen" && (
         <RegenDialog onClose={() => { setDialog(null); reload(); }} />
       )}
+      <PasskeySettings />
     </SettingSection>
   );
 }

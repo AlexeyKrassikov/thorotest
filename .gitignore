@@ -47,3 +47,6 @@ test-results/
 /docker-compose.dokploy.local.yml
 
 *.log
+
+# Local agent planning and workflow artifacts
+superpowers/

@@ -16,6 +16,8 @@ const env = {
   ALLOW_OPEN_REGISTRATION: '1', LOGIN_RATELIMIT_DISABLED: '1',
   WEBHOOK_ALLOW_PRIVATE_HOSTS: '1',
   SMTP_HOST: '', MATTERMOST_URL: '',
+  WEBAUTHN_ORIGIN: `http://localhost:${process.env.I18N_TEST_PORT || '18347'}`,
+  WEBAUTHN_RP_ID: 'localhost',
   GITHUB_CLIENT_ID: 'browser-test-client', GITHUB_CLIENT_SECRET: 'browser-test-secret',
   GOOGLE_CLIENT_ID: 'browser-test-client', GOOGLE_CLIENT_SECRET: 'browser-test-secret',
 };

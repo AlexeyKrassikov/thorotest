@@ -46,6 +46,8 @@ export default defineConfig({
       GITHUB_CLIENT_SECRET: 'browser-test-secret',
       GOOGLE_CLIENT_ID: 'browser-test-client',
       GOOGLE_CLIENT_SECRET: 'browser-test-secret',
+      WEBAUTHN_ORIGIN: 'http://localhost:8000',
+      WEBAUTHN_RP_ID: 'localhost',
       // e2e webhook tests point at a local target; allow private hosts for the
       // SSRF guard in this environment only (never in production).
       WEBHOOK_ALLOW_PRIVATE_HOSTS: '1',

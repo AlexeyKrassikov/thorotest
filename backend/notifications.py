@@ -23,12 +23,15 @@ _MENTION_RE = re.compile(r"@([A-Za-z0-9_][A-Za-z0-9_.\-]*)")
 class NotificationManager:
     def __init__(self):
         self.connections: Dict[int, List[WebSocket]] = {}  # user_id → sockets
+        self.authorizers = {}
 
-    async def connect(self, user_id: int, websocket: WebSocket):
+    async def connect(self, user_id: int, websocket: WebSocket, authorize=None):
         await websocket.accept()
         self.connections.setdefault(user_id, []).append(websocket)
+        self.authorizers[websocket] = authorize
 
     def disconnect(self, user_id: int, websocket: WebSocket):
+        self.authorizers.pop(websocket, None)
         conns = self.connections.get(user_id, [])
         if websocket in conns:
             conns.remove(websocket)
@@ -38,11 +41,16 @@ class NotificationManager:
         dead = []
         for ws in conns:
             try:
+                authorize = self.authorizers.get(ws)
+                if authorize and not authorize():
+                    await ws.close(code=1008)
+                    dead.append(ws)
+                    continue
                 await ws.send_json(payload)
             except Exception:
                 dead.append(ws)
         for ws in dead:
-            conns.remove(ws)
+            self.disconnect(user_id, ws)
 
 
 notif_manager = NotificationManager()
