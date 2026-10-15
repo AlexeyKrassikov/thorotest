@@ -2,12 +2,37 @@
 (function () {
   const BASE = "";  // served from same origin
 
+  const t = (key, params) => window.TH_I18N.t(key, params);
+
+  function errorMessage(detail) {
+    if (Array.isArray(detail)) return detail.map(item => item.msg || t("api.requestFailed")).join("; ");
+    if (typeof detail !== "string") return t("api.requestFailed");
+    // Admin endpoints historically read the JSON error body as text.
+    try {
+      const parsed = JSON.parse(detail);
+      if (parsed && typeof parsed === "object" && "detail" in parsed) return errorMessage(parsed.detail);
+    } catch (_) {}
+    return detail;
+  }
+
+  // Apply the UI language to anonymous, multipart and authenticated requests.
+  async function fetch(url, options = {}) {
+    const headers = new Headers(options.headers);
+    headers.set("Accept-Language", window.TH_I18N.getLanguage());
+    try {
+      return await window.fetch(url, { ...options, headers });
+    } catch (error) {
+      if (error.name === "AbortError") throw error;
+      throw new Error(errorMessage(t("api.networkFailed")));
+    }
+  }
+
   function getToken() { return localStorage.getItem("th_token"); }
   function setToken(t) { localStorage.setItem("th_token", t); }
   function clearToken() { localStorage.removeItem("th_token"); }
 
   function authHeaders(extra) {
-    const h = { "Content-Type": "application/json", ...extra };
+    const h = { "Content-Type": "application/json", "Accept-Language": window.TH_I18N.getLanguage(), ...extra };
     const t = getToken();
     if (t) h["Authorization"] = `Bearer ${t}`;
     return h;
@@ -18,13 +43,13 @@
       method: "POST",
       headers: authHeaders(),
     });
-    if (!res.ok) throw new Error("WebSocket authentication failed");
+    if (!res.ok) throw new Error(errorMessage(t("api.websocketFailed")));
     return (await res.json()).ticket;
   }
 
   async function loadInitialData() {
     const res = await fetch(BASE + "/api/initial-data", { headers: authHeaders() });
-    if (!res.ok) throw new Error("API unavailable");
+    if (!res.ok) throw new Error(errorMessage(t("api.unavailable")));
     return res.json();
   }
 
@@ -44,7 +69,7 @@
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Link failed");
+        throw new Error(errorMessage(err.detail || t("api.linkFailed")));
       }
       const data = await res.json();
       if (data.status === "2fa_required") {
@@ -71,7 +96,7 @@
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Request failed");
+        throw new Error(errorMessage(err.detail || t("api.requestFailed")));
       }
       return res.json();
     },
@@ -84,7 +109,7 @@
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Reset failed");
+        throw new Error(errorMessage(err.detail || t("api.resetFailed")));
       }
     },
 
@@ -96,7 +121,7 @@
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Login failed");
+        throw new Error(errorMessage(err.detail || t("api.loginFailed")));
       }
       const data = await res.json();
       if (data.status === "2fa_required") {
@@ -114,7 +139,7 @@
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        const e = new Error(err.detail || "Invalid code");
+        const e = new Error(errorMessage(err.detail || t("api.invalidCode")));
         e.httpStatus = res.status;
         throw e;
       }
@@ -125,7 +150,7 @@
 
     async get2FASetup() {
       const res = await fetch(BASE + "/api/me/2fa/setup", { headers: authHeaders() });
-      if (!res.ok) { throw new Error((await res.json().catch(() => ({}))).detail || "Request failed"); }
+      if (!res.ok) { throw new Error(errorMessage((await res.json().catch(() => ({}))).detail || t("api.requestFailed"))); }
       return res.json();
     },
 
@@ -135,7 +160,7 @@
         headers: authHeaders(),
         body: JSON.stringify({ pending_secret: pendingSecret, totp_code: totpCode }),
       });
-      if (!res.ok) { throw new Error((await res.json().catch(() => ({}))).detail || "Request failed"); }
+      if (!res.ok) { throw new Error(errorMessage((await res.json().catch(() => ({}))).detail || t("api.requestFailed"))); }
       return res.json();
     },
 
@@ -145,7 +170,7 @@
         headers: authHeaders(),
         body: JSON.stringify({ totp_code: totpCode }),
       });
-      if (!res.ok) { throw new Error((await res.json().catch(() => ({}))).detail || "Request failed"); }
+      if (!res.ok) { throw new Error(errorMessage((await res.json().catch(() => ({}))).detail || t("api.requestFailed"))); }
     },
 
     async regenerate2FACodes(totpCode) {
@@ -154,13 +179,13 @@
         headers: authHeaders(),
         body: JSON.stringify({ totp_code: totpCode }),
       });
-      if (!res.ok) { throw new Error((await res.json().catch(() => ({}))).detail || "Request failed"); }
+      if (!res.ok) { throw new Error(errorMessage((await res.json().catch(() => ({}))).detail || t("api.requestFailed"))); }
       return res.json();
     },
 
     async get2FACount() {
       const res = await fetch(BASE + "/api/me/2fa/recovery-codes/count", { headers: authHeaders() });
-      if (!res.ok) { throw new Error((await res.json().catch(() => ({}))).detail || "Request failed"); }
+      if (!res.ok) { throw new Error(errorMessage((await res.json().catch(() => ({}))).detail || t("api.requestFailed"))); }
       return res.json();
     },
 
@@ -190,7 +215,7 @@
 
     async getTest(id) {
       const res = await fetch(BASE + `/api/tests/${id}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Test not found");
+      if (!res.ok) throw new Error(errorMessage(t("api.testNotFound")));
       const t = await res.json();
       return { ...t, folder: t.folder_id, updated: t.updated_at, lastRun: t.last_run_at };
     },
@@ -201,7 +226,7 @@
         headers: authHeaders(),
         body: JSON.stringify({ status }),
       });
-      if (!res.ok) throw new Error("Update failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.updateFailed")));
       return res.json();
     },
 
@@ -211,13 +236,13 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Create failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.createFailed")));
       return res.json();
     },
 
     async getRun(id) {
       const res = await fetch(BASE + `/api/runs/${id}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Run not found");
+      if (!res.ok) throw new Error(errorMessage(t("api.runNotFound")));
       return res.json();
     },
 
@@ -227,7 +252,7 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Create run failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.createRunFailed")));
       return res.json();
     },
 
@@ -236,13 +261,13 @@
         method: "PATCH",
         headers: authHeaders(),
       });
-      if (!res.ok) throw new Error("Status update failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.statusFailed")));
       return res.json();
     },
 
     async listPlans() {
       const res = await fetch(BASE + "/api/plans", { headers: authHeaders() });
-      if (!res.ok) throw new Error("Load plans failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.plansFailed")));
       return res.json();
     },
 
@@ -252,24 +277,24 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Create plan failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.createPlanFailed")));
       return res.json();
     },
 
     async runPlan(id) {
       const res = await fetch(BASE + `/api/plans/${id}/run`, { method: "POST", headers: authHeaders() });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Run plan failed");
+      if (!res.ok) throw new Error(errorMessage((await res.json().catch(() => ({}))).detail || t("api.runPlanFailed")));
       return res.json();
     },
 
     async deletePlan(id) {
       const res = await fetch(BASE + `/api/plans/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok) throw new Error("Delete plan failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.deletePlanFailed")));
     },
 
     async deleteTest(id) {
       const res = await fetch(BASE + `/api/tests/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok && res.status !== 204) throw new Error("Delete failed");
+      if (!res.ok && res.status !== 204) throw new Error(errorMessage(t("api.deleteFailed")));
     },
 
     async bulkTests(action, ids, payload) {
@@ -278,7 +303,7 @@
         headers: authHeaders(),
         body: JSON.stringify({ action, ids, payload }),
       });
-      if (!res.ok) throw new Error("Bulk action failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.bulkFailed")));
       return res.json();
     },
 
@@ -295,26 +320,26 @@
 
     async getTestHistory(id) {
       const res = await fetch(BASE + `/api/tests/${id}/history`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("History fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.historyFailed")));
       return res.json();
     },
 
     async getRuns() {
       const res = await fetch(BASE + "/api/runs", { headers: authHeaders() });
-      if (!res.ok) throw new Error("Runs fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.runsFailed")));
       return res.json();
     },
 
     // Per-record change history (who/when/what). entityType: test|requirement|defect
     async getRecordHistory(entityType, id) {
       const res = await fetch(BASE + `/api/history/${entityType}/${id}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("History fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.historyFailed")));
       return res.json();
     },
 
     async getTestDefects(id) {
       const res = await fetch(BASE + `/api/tests/${id}/defects`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Defects fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.defectsFailed")));
       return res.json();
     },
 
@@ -326,13 +351,13 @@
       if (filters.search) params.set("search", filters.search);
       const qs = params.toString() ? `?${params}` : "";
       const res = await fetch(BASE + `/api/defects${qs}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Defects fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.defectsFailed")));
       return res.json();
     },
 
     async getDefect(id) {
       const res = await fetch(BASE + `/api/defects/${id}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Defect not found");
+      if (!res.ok) throw new Error(errorMessage(t("api.defectNotFound")));
       return res.json();
     },
 
@@ -342,7 +367,7 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Create defect failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.createDefectFailed")));
       return res.json();
     },
 
@@ -352,21 +377,21 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Update defect failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.updateDefectFailed")));
       return res.json();
     },
 
     async deleteDefect(id) {
       const res = await fetch(BASE + `/api/defects/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok && res.status !== 204) throw new Error("Delete defect failed");
+      if (!res.ok && res.status !== 204) throw new Error(errorMessage(t("api.deleteDefectFailed")));
     },
 
     async pushDefectToJira(id) {
       const res = await fetch(BASE + `/api/defects/${id}/push`, { method: "POST", headers: authHeaders() });
       if (!res.ok) {
-        let msg = "Push to Jira failed";
+        let msg = t("api.pushJiraFailed");
         try { msg = (await res.json()).detail || msg; } catch {}
-        throw new Error(msg);
+        throw new Error(errorMessage(msg));
       }
       return res.json();
     },
@@ -374,16 +399,16 @@
     async pushTestToGit(id) {
       const res = await fetch(BASE + `/api/tests/${id}/push-to-git`, { method: "POST", headers: authHeaders() });
       if (!res.ok) {
-        let msg = "Push to git failed";
+        let msg = t("api.pushGitFailed");
         try { msg = (await res.json()).detail || msg; } catch {}
-        throw new Error(msg);
+        throw new Error(errorMessage(msg));
       }
       return res.json();
     },
 
     async getRunDefects(runId) {
       const res = await fetch(BASE + `/api/runs/${runId}/defects`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Run defects fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.runDefectsFailed")));
       return res.json();
     },
 
@@ -395,13 +420,13 @@
       if (filters.search) params.set("search", filters.search);
       const qs = params.toString() ? `?${params}` : "";
       const res = await fetch(BASE + `/api/requirements${qs}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Requirements fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.requirementsFailed")));
       return res.json();
     },
 
     async getRequirement(id) {
       const res = await fetch(BASE + `/api/requirements/${id}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Requirement not found");
+      if (!res.ok) throw new Error(errorMessage(t("api.requirementNotFound")));
       return res.json();
     },
 
@@ -409,7 +434,7 @@
       const res = await fetch(BASE + "/api/requirements", {
         method: "POST", headers: authHeaders(), body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Create requirement failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.createRequirementFailed")));
       return res.json();
     },
 
@@ -417,30 +442,30 @@
       const res = await fetch(BASE + `/api/requirements/${id}`, {
         method: "PATCH", headers: authHeaders(), body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Update requirement failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.updateRequirementFailed")));
       return res.json();
     },
 
     async deleteRequirement(id) {
       const res = await fetch(BASE + `/api/requirements/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok && res.status !== 204) throw new Error("Delete requirement failed");
+      if (!res.ok && res.status !== 204) throw new Error(errorMessage(t("api.deleteRequirementFailed")));
     },
 
     async getTestRequirements(testId) {
       const res = await fetch(BASE + `/api/tests/${testId}/requirements`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Test requirements fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.testRequirementsFailed")));
       return res.json();
     },
 
     async linkRequirementTest(reqId, testId) {
       const res = await fetch(BASE + `/api/requirements/${reqId}/tests/${testId}`, { method: "POST", headers: authHeaders() });
-      if (!res.ok) throw new Error("Link test failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.linkTestFailed")));
       return res.json();
     },
 
     async unlinkRequirementTest(reqId, testId) {
       const res = await fetch(BASE + `/api/requirements/${reqId}/tests/${testId}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok) throw new Error("Unlink test failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.unlinkTestFailed")));
       return res.json();
     },
 
@@ -450,13 +475,13 @@
       if (filters.limit) params.set("limit", filters.limit);
       const qs = params.toString() ? `?${params}` : "";
       const res = await fetch(BASE + `/api/tests${qs}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Tests fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.testsFailed")));
       return res.json();
     },
 
     async getTestComments(id) {
       const res = await fetch(BASE + `/api/tests/${id}/comments`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Comments fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.commentsFailed")));
       return res.json();
     },
 
@@ -466,13 +491,13 @@
         headers: authHeaders(),
         body: JSON.stringify({ who, text }),
       });
-      if (!res.ok) throw new Error("Add comment failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.addCommentFailed")));
       return res.json();
     },
 
     async getUsers() {
       const res = await fetch(BASE + "/api/users", { headers: authHeaders() });
-      if (!res.ok) throw new Error("Users fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.usersFailed")));
       return res.json();
     },
 
@@ -483,7 +508,7 @@
         body: JSON.stringify({ query, variables }),
       });
       const json = await res.json();
-      if (json.errors) throw new Error(json.errors[0].message);
+      if (json.errors) throw new Error(errorMessage(json.errors[0].message));
       return json.data;
     },
 
@@ -493,7 +518,7 @@
         headers: authHeaders(),
         body: JSON.stringify(data),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Update failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.updateFailed"))); }
       return res.json();
     },
 
@@ -503,12 +528,12 @@
         headers: authHeaders(),
         body: JSON.stringify({ current_password, new_password }),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Password change failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.passwordFailed"))); }
     },
 
     async getProjects() {
       const res = await fetch(BASE + "/api/projects", { headers: authHeaders() });
-      if (!res.ok) throw new Error(`Failed to load projects (${res.status})`);
+      if (!res.ok) throw new Error(errorMessage(t("api.projectsFailed", { status: res.status })));
       return res.json();
     },
 
@@ -518,7 +543,7 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Create failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.createFailed"))); }
       return res.json();
     },
 
@@ -528,18 +553,18 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Update failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.updateFailed"))); }
       return res.json();
     },
 
     async deleteProject(id) {
       const res = await fetch(BASE + `/api/projects/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Delete failed"); }
+      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.deleteFailed"))); }
     },
 
     async getCategories() {
       const res = await fetch(BASE + "/api/categories", { headers: authHeaders() });
-      if (!res.ok) throw new Error(`Failed to load categories (${res.status})`);
+      if (!res.ok) throw new Error(errorMessage(t("api.categoriesFailed", { status: res.status })));
       return res.json();
     },
 
@@ -549,7 +574,7 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Create failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.createFailed"))); }
       return res.json();
     },
 
@@ -559,18 +584,18 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Update failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.updateFailed"))); }
       return res.json();
     },
 
     async deleteCategory(id) {
       const res = await fetch(BASE + `/api/categories/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Delete failed"); }
+      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.deleteFailed"))); }
     },
 
     async getFolders() {
       const res = await fetch(BASE + "/api/folders", { headers: authHeaders() });
-      if (!res.ok) throw new Error("Failed to load folders");
+      if (!res.ok) throw new Error(errorMessage(t("api.foldersFailed")));
       return res.json();
     },
 
@@ -580,7 +605,7 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Create failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.createFailed"))); }
       return res.json();
     },
 
@@ -590,18 +615,18 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Update failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.updateFailed"))); }
       return res.json();
     },
 
     async deleteFolder(id) {
       const res = await fetch(BASE + `/api/folders/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Delete failed"); }
+      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.deleteFailed"))); }
     },
 
     async getIntegrations() {
       const res = await fetch(BASE + "/api/integrations", { headers: authHeaders() });
-      if (!res.ok) throw new Error("Failed to load integrations");
+      if (!res.ok) throw new Error(errorMessage(t("api.integrationsFailed")));
       return res.json();
     },
 
@@ -609,7 +634,7 @@
       const res = await fetch(BASE + "/api/integrations", {
         method: "POST", headers: authHeaders(), body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Create failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.createFailed"))); }
       return res.json();
     },
 
@@ -617,35 +642,35 @@
       const res = await fetch(BASE + `/api/integrations/${id}`, {
         method: "PATCH", headers: authHeaders(), body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Update failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.updateFailed"))); }
       return res.json();
     },
 
     async deleteIntegration(id) {
       const res = await fetch(BASE + `/api/integrations/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Delete failed"); }
+      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.deleteFailed"))); }
     },
 
     async deletePipeline(id) {
       const res = await fetch(BASE + `/api/pipelines/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Delete failed"); }
+      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.deleteFailed"))); }
     },
 
     async pipelineCases(id) {
       const res = await fetch(BASE + `/api/pipelines/${id}/cases`, { headers: authHeaders() });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Failed to load cases"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.casesFailed"))); }
       return res.json();
     },
 
     async reconcilePipelines() {
       const res = await fetch(BASE + `/api/pipelines/reconcile`, { method: "POST", headers: authHeaders() });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Reconcile failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.reconcileFailed"))); }
       return res.json();   // { updated, pipelines }
     },
 
     async syncIntegration(id) {
       const res = await fetch(BASE + `/api/integrations/${id}/sync`, { method: "POST", headers: authHeaders() });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Sync failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.syncFailed"))); }
       return res.json();
     },
 
@@ -654,19 +679,19 @@
       const res = await fetch(BASE + `/api/integrations/${id}/ci/run`, {
         method: "POST", headers: authHeaders(), body: JSON.stringify(body || {}),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "CI dispatch failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.dispatchFailed"))); }
       return res.json();
     },
 
     async ciJobStatus(id, jobId) {
       const res = await fetch(BASE + `/api/integrations/${id}/ci/jobs/${jobId}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Job not found");
+      if (!res.ok) throw new Error(errorMessage(t("api.jobNotFound")));
       return res.json();
     },
 
     async getTokens() {
       const res = await fetch(BASE + "/api/tokens", { headers: authHeaders() });
-      if (!res.ok) throw new Error("Failed to load tokens");
+      if (!res.ok) throw new Error(errorMessage(t("api.tokensFailed")));
       return res.json();
     },
 
@@ -674,18 +699,18 @@
       const res = await fetch(BASE + "/api/tokens", {
         method: "POST", headers: authHeaders(), body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Create failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.createFailed"))); }
       return res.json();
     },
 
     async revokeToken(id) {
       const res = await fetch(BASE + `/api/tokens/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Revoke failed"); }
+      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.revokeFailed"))); }
     },
 
     async getWebhooks() {
       const res = await fetch(BASE + "/api/webhooks", { headers: authHeaders() });
-      if (!res.ok) throw new Error("Failed to load webhooks");
+      if (!res.ok) throw new Error(errorMessage(t("api.webhooksFailed")));
       return res.json();
     },
 
@@ -693,7 +718,7 @@
       const res = await fetch(BASE + "/api/webhooks", {
         method: "POST", headers: authHeaders(), body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Create failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.createFailed"))); }
       return res.json();
     },
 
@@ -701,20 +726,20 @@
       const res = await fetch(BASE + `/api/webhooks/${id}`, {
         method: "PATCH", headers: authHeaders(), body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Update failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.updateFailed"))); }
       return res.json();
     },
 
     async deleteWebhook(id) {
       const res = await fetch(BASE + `/api/webhooks/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Delete failed"); }
+      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.deleteFailed"))); }
     },
 
     async testWebhook(id) {
       const res = await fetch(BASE + `/api/webhooks/${id}/test`, {
         method: "POST", headers: authHeaders(),
       });
-      if (!res.ok) throw new Error("Test request failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.testRequestFailed")));
       return res.json();
     },
 
@@ -728,18 +753,18 @@
       const res = await fetch(BASE + "/api/favorites", {
         method: "POST", headers: authHeaders(), body: JSON.stringify({ folder_id: folderId }),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.failed"))); }
       return res.json();
     },
 
     async removeFavorite(folderId) {
       const res = await fetch(BASE + `/api/favorites/${folderId}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Failed"); }
+      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.failed"))); }
     },
 
     async getTestSteps(testId) {
       const res = await fetch(BASE + `/api/tests/${testId}/steps`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Steps fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.stepsFailed")));
       return res.json();
     },
 
@@ -750,13 +775,13 @@
         headers: authHeaders(),
         body: JSON.stringify(steps),
       });
-      if (!res.ok) throw new Error("Steps save failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.stepsSaveFailed")));
       return res.json();
     },
 
     async getStepResults(runId, caseId) {
       const res = await fetch(BASE + `/api/runs/${runId}/cases/${caseId}/steps`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Step results fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.stepResultsFailed")));
       return res.json();
     },
 
@@ -767,14 +792,14 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Step result update failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.stepResultUpdateFailed")));
       return res.json();
     },
 
     async getAttachments(entityType, entityId) {
       const params = new URLSearchParams({ entity_type: entityType, entity_id: String(entityId) });
       const res = await fetch(BASE + `/api/attachments?${params}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Attachments fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.attachmentsFailed")));
       return res.json();
     },
 
@@ -790,7 +815,7 @@
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: fd,
       });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.uploadFailed")));
       return res.json();
     },
 
@@ -799,12 +824,12 @@
         method: "DELETE",
         headers: authHeaders(),
       });
-      if (!res.ok && res.status !== 204) throw new Error("Delete attachment failed");
+      if (!res.ok && res.status !== 204) throw new Error(errorMessage(t("api.deleteAttachmentFailed")));
     },
 
     async listAdminUsers() {
       const resp = await fetch(BASE + "/api/admin/users", { headers: authHeaders() });
-      if (!resp.ok) throw new Error(await resp.text());
+      if (!resp.ok) throw new Error(errorMessage(await resp.text()));
       return resp.json();
     },
 
@@ -814,7 +839,7 @@
         headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!resp.ok) throw new Error(await resp.text());
+      if (!resp.ok) throw new Error(errorMessage(await resp.text()));
       return resp.json();
     },
 
@@ -824,7 +849,7 @@
         headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ role }),
       });
-      if (!resp.ok) throw new Error(await resp.text());
+      if (!resp.ok) throw new Error(errorMessage(await resp.text()));
       return resp.json();
     },
 
@@ -833,7 +858,7 @@
         method: "DELETE",
         headers: authHeaders(),
       });
-      if (!resp.ok) throw new Error(await resp.text());
+      if (!resp.ok) throw new Error(errorMessage(await resp.text()));
     },
 
     async retestRun(runId) {
@@ -841,7 +866,7 @@
         method: "POST",
         headers: authHeaders(),
       });
-      if (!res.ok) throw new Error("Retest failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.retestFailed")));
       return res.json();
     },
 
@@ -851,7 +876,7 @@
         headers: authHeaders(),
         body: JSON.stringify({ assigned_to: assignedTo }),
       });
-      if (!res.ok) throw new Error("Assign failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.assignFailed")));
       return res.json();
     },
 
@@ -865,13 +890,13 @@
         headers: authHeaders(),
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Mark failed");
+      if (!res.ok) throw new Error(errorMessage((await res.json().catch(() => ({}))).detail || t("api.markFailed")));
       return res.json();
     },
 
     async getMyCases() {
       const res = await fetch(BASE + "/api/runs/my-cases", { headers: authHeaders() });
-      if (!res.ok) throw new Error("My cases fetch failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.myCasesFailed")));
       return res.json();
     },
 
@@ -881,9 +906,9 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (res.status === 429) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Rate limit exceeded: try again in an hour"); }
-      if (res.status === 503) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "AI not configured"); }
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "AI request failed"); }
+      if (res.status === 429) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.rateLimited"))); }
+      if (res.status === 503) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.aiNotConfigured"))); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.aiFailed"))); }
       return res.json();
     },
 
@@ -893,9 +918,9 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (res.status === 429) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Rate limit exceeded: try again in an hour"); }
-      if (res.status === 503) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "AI not configured"); }
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "AI request failed"); }
+      if (res.status === 429) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.rateLimited"))); }
+      if (res.status === 503) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.aiNotConfigured"))); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.aiFailed"))); }
       return res.json();
     },
 
@@ -905,9 +930,9 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (res.status === 429) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Rate limit exceeded: try again in an hour"); }
-      if (res.status === 503) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "AI not configured"); }
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "AI request failed"); }
+      if (res.status === 429) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.rateLimited"))); }
+      if (res.status === 503) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.aiNotConfigured"))); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.aiFailed"))); }
       return res.json();
     },
 
@@ -917,15 +942,15 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (res.status === 429) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Rate limit exceeded: try again in an hour"); }
-      if (res.status === 503) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "AI not configured"); }
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "AI request failed"); }
+      if (res.status === 429) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.rateLimited"))); }
+      if (res.status === 503) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.aiNotConfigured"))); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.aiFailed"))); }
       return res.json();
     },
 
     async exportRunCSV(runId) {
       const res = await fetch(BASE + `/api/runs/${runId}/export?format=csv`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Export failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.exportFailed")));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -939,7 +964,7 @@
 
     async exportRunPDF(runId) {
       const res = await fetch(BASE + `/api/runs/${runId}/export?format=pdf`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Export failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.exportFailed")));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -955,7 +980,7 @@
       const params = new URLSearchParams({ format: "csv" });
       if (folderId) params.set("folder_id", folderId);
       const res = await fetch(BASE + `/api/tests/export?${params}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Export failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.exportFailed")));
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -978,7 +1003,7 @@
         method: "PATCH",
         headers: authHeaders(),
       });
-      if (!res.ok) throw new Error("Mark read failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.markReadFailed")));
       return res.json();
     },
 
@@ -987,7 +1012,7 @@
         method: "POST",
         headers: authHeaders(),
       });
-      if (!res.ok) throw new Error("Mark all read failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.markAllReadFailed")));
       return res.json();
     },
 
@@ -996,7 +1021,7 @@
         method: "DELETE",
         headers: authHeaders(),
       });
-      if (!res.ok && res.status !== 204) throw new Error("Delete notification failed");
+      if (!res.ok && res.status !== 204) throw new Error(errorMessage(t("api.deleteNotificationFailed")));
     },
 
     async getNotificationConfig() {
@@ -1011,7 +1036,7 @@
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Config update failed");
+      if (!res.ok) throw new Error(errorMessage(t("api.configFailed")));
       return res.json();
     },
 
@@ -1025,7 +1050,7 @@
     async getCustomFields(entityType) {
       const qs = entityType ? `?entity_type=${encodeURIComponent(entityType)}` : "";
       const res = await fetch(BASE + `/api/custom-fields${qs}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Failed to load custom fields");
+      if (!res.ok) throw new Error(errorMessage(t("api.customFieldsFailed")));
       return res.json();
     },
 
@@ -1033,7 +1058,7 @@
       const res = await fetch(BASE + "/api/custom-fields", {
         method: "POST", headers: authHeaders(), body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Create failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.createFailed"))); }
       return res.json();
     },
 
@@ -1041,20 +1066,20 @@
       const res = await fetch(BASE + `/api/custom-fields/${id}`, {
         method: "PATCH", headers: authHeaders(), body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Update failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.updateFailed"))); }
       return res.json();
     },
 
     async deleteCustomField(id) {
       const res = await fetch(BASE + `/api/custom-fields/${id}`, { method: "DELETE", headers: authHeaders() });
-      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Delete failed"); }
+      if (!res.ok && res.status !== 204) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.deleteFailed"))); }
     },
 
     async updateTest(id, payload) {
       const res = await fetch(BASE + `/api/tests/${id}`, {
         method: "PATCH", headers: authHeaders(), body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Update failed"); }
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(errorMessage(e.detail || t("api.updateFailed"))); }
       return res.json();
     },
 
@@ -1067,7 +1092,7 @@
       const res = await fetch(BASE + "/api/audit-log?" + params, { headers: authHeaders() });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
-        throw new Error(e.detail || "Audit log fetch failed");
+        throw new Error(errorMessage(e.detail || t("api.auditLogFailed")));
       }
       return res.json();
     },

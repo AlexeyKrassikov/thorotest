@@ -1,7 +1,8 @@
 // ThoroTest — NotificationBell component
 
 function NotificationBell({ currentUser }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const relativeFormatter = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
   const [notifications, setNotifications] = React.useState([]);
   const [open, setOpen] = React.useState(false);
   const wrapRef = React.useRef(null);
@@ -80,11 +81,11 @@ function NotificationBell({ currentUser }) {
     try {
       const diff = Date.now() - new Date(isoStr).getTime();
       const mins = Math.floor(diff / 60000);
-      if (mins < 1) return "just now";
-      if (mins < 60) return `${mins}m ago`;
+      if (mins < 1) return t("workspace.history.justNow");
+      if (mins < 60) return lang === "en" ? `${mins}m ago` : relativeFormatter.format(-mins, "minute");
       const hrs = Math.floor(mins / 60);
-      if (hrs < 24) return `${hrs}h ago`;
-      return `${Math.floor(hrs / 24)}d ago`;
+      if (hrs < 24) return lang === "en" ? `${hrs}h ago` : relativeFormatter.format(-hrs, "hour");
+      return lang === "en" ? `${Math.floor(hrs / 24)}d ago` : relativeFormatter.format(-Math.floor(hrs / 24), "day");
     } catch { return ""; }
   }
 
@@ -103,10 +104,10 @@ function NotificationBell({ currentUser }) {
       {/* Bell button */}
       <button
         className="btn ghost icon"
-        title="Notifications"
+        title={t("workspace.notificationBell.title")}
         onClick={handleBellClick}
         style={{ position: "relative" }}
-        aria-label="Notifications"
+        aria-label={t("workspace.notificationBell.ariaLabel")}
       >
         {/* Bell icon — inline SVG matching existing Icon component style */}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -143,14 +144,14 @@ function NotificationBell({ currentUser }) {
             display: "flex", alignItems: "center", justifyContent: "space-between",
             padding: "10px 12px", borderBottom: "1px solid var(--border, #e5e7eb)",
           }}>
-            <span style={{ fontWeight: 600, fontSize: 13 }}>Notifications</span>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>{t("workspace.notificationBell.title")}</span>
             {unreadCount > 0 && (
               <button
                 className="btn ghost"
                 style={{ fontSize: 11, padding: "2px 6px" }}
                 onClick={handleMarkAllRead}
               >
-                Mark all read
+                {t("workspace.notificationBell.markAllRead")}
               </button>
             )}
           </div>
@@ -162,7 +163,7 @@ function NotificationBell({ currentUser }) {
                 padding: "20px 12px", textAlign: "center",
                 color: "var(--muted, #9ca3af)", fontSize: 13,
               }}>
-                No notifications
+                {t("workspace.notificationBell.empty")}
               </div>
             ) : (
               notifications.map(notif => (

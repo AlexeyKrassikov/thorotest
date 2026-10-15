@@ -2,6 +2,7 @@
 // Exposed as window.AuditLogTab for use by view-admin.jsx
 
 function AuditLogTab({ currentUser }) {
+  const { t, lang } = useI18n();
   const PAGE_SIZE = 50;
 
   // Filter state
@@ -51,11 +52,15 @@ function AuditLogTab({ currentUser }) {
   };
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
+  const entryCategory = data ? new Intl.PluralRules(lang).select(data.total) : "other";
+  const entryKey = `workspace.audit.entry_${entryCategory}`;
 
   const formatTs = (iso) => {
     if (!iso) return "—";
-    // Display as absolute UTC: 2026-06-11 14:23:01 UTC
-    return iso.replace("T", " ").replace(/\.\d+Z?$/, "").replace("Z", "") + " UTC";
+    if (lang === "en") return iso.replace("T", " ").replace(/\.\d+Z?$/, "").replace("Z", "") + " UTC";
+    try {
+      return `${new Intl.DateTimeFormat(lang, { dateStyle: "short", timeStyle: "medium", timeZone: "UTC" }).format(new Date(iso))} ${t("workspace.audit.utc")}`;
+    } catch { return iso; }
   };
 
   const outcomeStyle = (outcome) => ({
@@ -67,10 +72,10 @@ function AuditLogTab({ currentUser }) {
     <div>
       {/* Filter bar */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <button className="btn ghost sm" onClick={() => applyPreset("24h")}>Last 24h</button>
-        <button className="btn ghost sm" onClick={() => applyPreset("7d")}>Last 7 days</button>
-        <button className="btn ghost sm" onClick={() => applyPreset("30d")}>Last 30 days</button>
-        <span style={{ color: "var(--text-muted)", fontSize: 12, margin: "0 4px" }}>or</span>
+        <button className="btn ghost sm" onClick={() => applyPreset("24h")}>{t("workspace.audit.last24h")}</button>
+        <button className="btn ghost sm" onClick={() => applyPreset("7d")}>{t("workspace.audit.last7d")}</button>
+        <button className="btn ghost sm" onClick={() => applyPreset("30d")}>{t("workspace.audit.last30d")}</button>
+        <span style={{ color: "var(--text-muted)", fontSize: 12, margin: "0 4px" }}>{t("workspace.audit.or")}</span>
         <input
           type="date"
           value={startDate}
@@ -78,7 +83,7 @@ function AuditLogTab({ currentUser }) {
           onChange={e => setStartDate(e.target.value)}
           style={{ fontSize: 13, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)" }}
         />
-        <span style={{ color: "var(--text-muted)", fontSize: 12 }}>to</span>
+        <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{t("workspace.audit.to")}</span>
         <input
           type="date"
           value={endDate}
@@ -90,26 +95,26 @@ function AuditLogTab({ currentUser }) {
       </div>
 
       {/* Status */}
-      {loading && <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading...</div>}
-      {error && <div style={{ color: "var(--danger, #e06c75)", fontSize: 13 }}>Error: {error}</div>}
+      {loading && <div style={{ color: "var(--text-muted)", fontSize: 13 }}>{t("workspace.audit.loading")}</div>}
+      {error && <div style={{ color: "var(--danger, #e06c75)", fontSize: 13 }}>{t("workspace.audit.error", { error })}</div>}
 
       {/* Table */}
       {!loading && !error && data && (
         <>
           <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
-            {data.total} {data.total === 1 ? "entry" : "entries"}
-            {totalPages > 1 && ` — page ${page} of ${totalPages}`}
+            {t(entryKey, { count: data.total })}
+            {totalPages > 1 && ` — ${t("workspace.audit.page", { page, total: totalPages })}`}
           </div>
 
           {data.entries.length === 0 ? (
-            <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "20px 0" }}>No audit entries for this period.</div>
+            <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "20px 0" }}>{t("workspace.audit.empty")}</div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                    {["Timestamp", "Actor", "Description", "Target"].map(h => (
-                      <th key={h} style={{ textAlign: "left", padding: "6px 10px", fontWeight: 600, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{h}</th>
+                    {["timestamp", "actor", "description", "target"].map(h => (
+                      <th key={h} style={{ textAlign: "left", padding: "6px 10px", fontWeight: 600, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{t(`workspace.audit.${h}`)}</th>
                     ))}
                   </tr>
                 </thead>
@@ -136,13 +141,13 @@ function AuditLogTab({ currentUser }) {
                 className="btn ghost sm"
                 onClick={() => load(page - 1)}
                 disabled={page <= 1}
-              >← Prev</button>
+              >← {t("workspace.audit.previous")}</button>
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{page} / {totalPages}</span>
               <button
                 className="btn ghost sm"
                 onClick={() => load(page + 1)}
                 disabled={page >= totalPages}
-              >Next →</button>
+              >{t("workspace.audit.next")} →</button>
             </div>
           )}
         </>

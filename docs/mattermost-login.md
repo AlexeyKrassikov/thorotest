@@ -39,20 +39,28 @@ does not revoke an already-issued ThoroTest session.
 ## Russian language
 
 Select **Русский** on the login screen or in Settings > Profile > Language.
-The Russian dictionary covers all existing translation keys and the login,
-password recovery, account-linking and 2FA screens. Other upstream screens
-still contain English text outside the translation system; this release does
-not claim full translation of those screens or server-generated error messages.
+Russian covers application screens, forms, built-in help, notifications,
+password-reset emails and application error messages. Language changes apply
+without reloading the page and persist across visits. API requests send the
+selected language through `Accept-Language`; emails and newly created
+notifications use the recipient's saved profile language.
+
+User-created content, existing notification history, API identifiers, code
+examples and diagnostic text returned by external providers are not translated.
+Other supported languages fall back to English for newly introduced keys.
 
 Verification:
 
 ```sh
 python -m pytest backend/tests/test_oauth_mattermost.py backend/tests/test_oauth.py backend/tests/test_oauth_google.py
-node --test scripts/test-russian-locale.cjs
+npm run test:i18n
+npm run test:i18n:browser
 npm run build
 ```
 
 Real OAuth end-to-end verification requires your Mattermost instance and
 registered client credentials; automated tests mock the provider exchanges.
+The localization browser suite uses a disposable SQLite database and checks
+Russian screens on desktop and mobile independently of any development data.
 
 [Mattermost OAuth documentation](https://docs.mattermost.com/developers/integrate/apps/authentication/oauth2)

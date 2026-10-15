@@ -15,9 +15,9 @@ function AdminPage({ currentUser, onNav }) {
   const ROLES = ["admin", "manager", "tester", "viewer"];
 
   const ADMIN_TABS = [
-    { id: "users",     label: t("admin.users") || "User Management" },
-    { id: "custom-fields", label: "Custom Fields" },
-    ...(window.can && window.can(currentUser, "manage") ? [{ id: "audit-log", label: "Audit Log" }] : []),
+    { id: "users",     label: t("admin.title") },
+    { id: "custom-fields", label: t("workspace.admin.customFields") },
+    ...(window.can && window.can(currentUser, "manage") ? [{ id: "audit-log", label: t("workspace.admin.auditLog") }] : []),
   ];
 
   const load = React.useCallback(async () => {
@@ -40,17 +40,17 @@ function AdminPage({ currentUser, onNav }) {
       const updated = await window.TH_API.updateUserRole(userId, newRole);
       setUsers(us => us.map(u => u.id === userId ? updated : u));
     } catch (e) {
-      alert("Errore cambio ruolo: " + e.message);
+      alert(t("workspace.admin.roleChangeError", { error: e.message }));
     }
   };
 
   const handleDelete = async (user) => {
-    if (!confirm(`Eliminare ${user.display_name || user.username}?`)) return;
+    if (!confirm(t("workspace.admin.deleteConfirm", { name: user.display_name || user.username }))) return;
     try {
       await window.TH_API.deleteAdminUser(user.id);
       setUsers(us => us.filter(u => u.id !== user.id));
     } catch (e) {
-      alert("Errore: " + e.message);
+      alert(t("workspace.admin.deleteError", { error: e.message }));
     }
   };
 
@@ -63,7 +63,7 @@ function AdminPage({ currentUser, onNav }) {
       setNewUser({ username: "", email: "", password: "", display_name: "", role: "tester" });
       setShowNewForm(false);
     } catch (e) {
-      alert("Errore creazione utente: " + e.message);
+      alert(t("workspace.admin.createError", { error: e.message }));
     } finally {
       setCreating(false);
     }
@@ -93,7 +93,7 @@ function AdminPage({ currentUser, onNav }) {
       {tab === "users" && (
         <div>
           {loading && <div className="page-content"><p>{t("common.loading")}</p></div>}
-          {error && <div className="page-content"><p style={{color:"var(--danger)"}}>Errore: {error}</p></div>}
+          {error && <div className="page-content"><p style={{color:"var(--danger)"}}>{t("workspace.admin.userListError", { error })}</p></div>}
           {!loading && !error && (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -109,20 +109,20 @@ function AdminPage({ currentUser, onNav }) {
                   borderRadius: 8, padding: 16, marginBottom: 20,
                   display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10
                 }}>
-                  <input className="input" placeholder="Username *" required
+                  <input className="input" placeholder={t("workspace.admin.usernamePlaceholder")} required
                     value={newUser.username} onChange={e => setNewUser(u => ({...u, username: e.target.value}))} />
                   <input className="input" placeholder={t("login.email") + " *"} type="email" required
                     value={newUser.email} onChange={e => setNewUser(u => ({...u, email: e.target.value}))} />
-                  <input className="input" placeholder="Password *" type="password" required
+                  <input className="input" placeholder={t("workspace.admin.passwordPlaceholder")} type="password" required
                     value={newUser.password} onChange={e => setNewUser(u => ({...u, password: e.target.value}))} />
                   <input className="input" placeholder={t("admin.displayName")}
                     value={newUser.display_name} onChange={e => setNewUser(u => ({...u, display_name: e.target.value}))} />
                   <select className="input" value={newUser.role}
                     onChange={e => setNewUser(u => ({...u, role: e.target.value}))}>
-                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    {ROLES.map(r => <option key={r} value={r}>{t(`workspace.roles.${r}`)}</option>)}
                   </select>
                   <button type="submit" className="btn accent sm" disabled={creating}>
-                    {creating ? "Creazione..." : "Crea utente"}
+                    {creating ? t("workspace.admin.creating") : t("workspace.admin.createUser")}
                   </button>
                 </form>
               )}
@@ -132,9 +132,9 @@ function AdminPage({ currentUser, onNav }) {
                   <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left" }}>
                     <th style={{ padding: "8px 12px" }}>{t("common.name")}</th>
                     <th style={{ padding: "8px 12px" }}>{t("login.email")}</th>
-                    <th style={{ padding: "8px 12px" }}>Username</th>
+                    <th style={{ padding: "8px 12px" }}>{t("workspace.admin.username")}</th>
                     <th style={{ padding: "8px 12px" }}>{t("admin.role")}</th>
-                    <th style={{ padding: "8px 12px" }}>Azioni</th>
+                    <th style={{ padding: "8px 12px" }}>{t("workspace.admin.actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -150,7 +150,7 @@ function AdminPage({ currentUser, onNav }) {
                           disabled={user.id === currentUser?.id}
                           style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: 4, padding: "2px 6px" }}
                         >
-                          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                          {ROLES.map(r => <option key={r} value={r}>{t(`workspace.roles.${r}`)}</option>)}
                         </select>
                       </td>
                       <td style={{ padding: "8px 12px" }}>

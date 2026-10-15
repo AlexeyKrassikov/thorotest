@@ -25,6 +25,7 @@ function useCustomFieldDefs(entityType) {
 // One labelled input per definition. `values` is the record's custom_fields
 // object; onChange receives the updated object.
 function CustomFieldsInputs({ defs, values, onChange }) {
+  const { t } = useI18n();
   if (!defs || defs.length === 0) return null;
   const set = (key, v) => onChange({ ...(values || {}), [key]: v });
   const L = { fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4 };
@@ -37,7 +38,7 @@ function CustomFieldsInputs({ defs, values, onChange }) {
             <label style={L}>{d.label}{d.required ? " *" : ""}</label>
             {d.field_type === "select" ? (
               <select className="input" style={{width:"100%"}} value={v ?? ""} onChange={e => set(d.key, e.target.value || null)}>
-                <option value="">— none —</option>
+                <option value="">{t("workspace.customFields.none")}</option>
                 {(d.options || []).map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             ) : d.field_type === "checkbox" ? (
@@ -62,17 +63,18 @@ function CustomFieldsInputs({ defs, values, onChange }) {
   );
 }
 
-function formatCustomFieldValue(def, v) {
+function formatCustomFieldValue(def, v, t) {
   if (v === undefined || v === null || v === "") return null;
-  if (def.field_type === "checkbox") return v ? "yes" : "no";
+  if (def.field_type === "checkbox") return v ? t("workspace.customFields.yes") : t("workspace.customFields.no");
   return String(v);
 }
 
 // Read-only label/value rows for detail panels. Renders nothing when the
 // record has no values for the given defs.
 function CustomFieldsDisplay({ defs, values }) {
+  const { t } = useI18n();
   const rows = (defs || [])
-    .map(d => ({ d, text: formatCustomFieldValue(d, (values || {})[d.key]) }))
+    .map(d => ({ d, text: formatCustomFieldValue(d, (values || {})[d.key], t) }))
     .filter(r => r.text !== null);
   if (rows.length === 0) return null;
   return (
@@ -90,14 +92,16 @@ function CustomFieldsDisplay({ defs, values }) {
 // ---- Admin manager (Admin page → Custom fields tab) ------------------------
 
 const CF_ENTITY_TYPES = [
-  { id: "test", label: "Tests" },
-  { id: "defect", label: "Defects" },
-  { id: "requirement", label: "Requirements" },
+  { id: "test", labelKey: "workspace.customFields.tests", singularKey: "workspace.customFields.entities.test", pluralKey: "workspace.customFields.entitiesPlural.test" },
+  { id: "defect", labelKey: "workspace.customFields.defects", singularKey: "workspace.customFields.entities.defect", pluralKey: "workspace.customFields.entitiesPlural.defect" },
+  { id: "requirement", labelKey: "workspace.customFields.requirements", singularKey: "workspace.customFields.entities.requirement", pluralKey: "workspace.customFields.entitiesPlural.requirement" },
 ];
 const CF_FIELD_TYPES = ["text", "number", "select", "date", "checkbox"];
 
 function CustomFieldsAdmin() {
+  const { t } = useI18n();
   const [entityType, setEntityType] = useState("test");
+  const entity = CF_ENTITY_TYPES.find(type => type.id === entityType);
   const [defs, setDefs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
@@ -113,7 +117,7 @@ function CustomFieldsAdmin() {
   useEffect(load, [entityType]);
 
   const handleDelete = async (d) => {
-    if (!window.confirm(`Delete field "${d.label}"? Existing values stay stored but are no longer shown.`)) return;
+    if (!window.confirm(t("workspace.customFields.deleteConfirm", { label: d.label }))) return;
     try {
       await TH_API.deleteCustomField(d.id);
       setDefs(prev => prev.filter(x => x.id !== d.id));
@@ -123,31 +127,31 @@ function CustomFieldsAdmin() {
   return (
     <div>
       <div style={{display:"flex", alignItems:"center", gap:8, marginBottom:16}}>
-        <h2 style={{margin:0, fontSize:18, fontWeight:600}}>Custom fields</h2>
+        <h2 style={{margin:0, fontSize:18, fontWeight:600}}>{t("workspace.customFields.title")}</h2>
         <div className="spacer" style={{flex:1}} />
         <select className="input" style={{width:150}} value={entityType} onChange={e => setEntityType(e.target.value)}>
-          {CF_ENTITY_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+          {CF_ENTITY_TYPES.map(type => <option key={type.id} value={type.id}>{t(type.labelKey)}</option>)}
         </select>
-        <button className="btn accent sm" onClick={() => setEditing({})}><Icon name="plus" /> New field</button>
+        <button className="btn accent sm" onClick={() => setEditing({})}><Icon name="plus" /> {t("workspace.customFields.newField")}</button>
       </div>
       <p style={{fontSize:12.5, color:"var(--text-muted)", margin:"0 0 16px"}}>
-        Extra fields shown on every {entityType} form. Values are stored per record and validated by the server.
+        {t("workspace.customFields.description", { entity: t(entity.singularKey) })}
       </p>
 
       {err && <div style={{color:"var(--fail)", fontSize:12, marginBottom:10}}>{err}</div>}
       {loading ? (
-        <div className="mono dim" style={{padding:24}}>Loading…</div>
+        <div className="mono dim" style={{padding:24}}>{t("common.loading")}</div>
       ) : defs.length === 0 ? (
-        <div className="mono dim" style={{padding:24}}>No custom fields for {entityType}s yet.</div>
+        <div className="mono dim" style={{padding:24}}>{t("workspace.customFields.empty", { entity: t(entity.pluralKey) })}</div>
       ) : (
         <table className="table">
           <thead>
             <tr>
-              <th>Label</th>
-              <th style={{width:140}}>Key</th>
-              <th style={{width:100}}>Type</th>
-              <th>Options</th>
-              <th style={{width:80}}>Required</th>
+              <th>{t("workspace.customFields.label")}</th>
+              <th style={{width:140}}>{t("workspace.customFields.key")}</th>
+              <th style={{width:100}}>{t("workspace.customFields.type")}</th>
+              <th>{t("workspace.customFields.options")}</th>
+              <th style={{width:80}}>{t("workspace.customFields.required")}</th>
               <th style={{width:64}}></th>
             </tr>
           </thead>
@@ -156,13 +160,13 @@ function CustomFieldsAdmin() {
               <tr key={d.id}>
                 <td style={{fontWeight:500}}>{d.label}</td>
                 <td className="mono" style={{fontSize:11.5}}>{d.key}</td>
-                <td><span className="tag">{d.field_type}</span></td>
+                <td><span className="tag">{t(`workspace.customFields.fieldTypes.${d.field_type}`)}</span></td>
                 <td style={{fontSize:12}}>{(d.options || []).join(", ") || <span className="dim">—</span>}</td>
-                <td>{d.required ? "yes" : <span className="dim">no</span>}</td>
+                <td>{d.required ? t("workspace.customFields.yes") : <span className="dim">{t("workspace.customFields.no")}</span>}</td>
                 <td>
                   <div style={{display:"flex", gap:2}}>
-                    <button className="btn ghost sm" style={{padding:"2px 6px"}} title="Edit" onClick={() => setEditing(d)}><Icon name="settings" /></button>
-                    <button className="btn ghost sm" style={{color:"var(--fail)", padding:"2px 6px"}} title="Delete" onClick={() => handleDelete(d)}><Icon name="x" /></button>
+                    <button className="btn ghost sm" style={{padding:"2px 6px"}} title={t("workspace.customFields.edit")} aria-label={t("workspace.customFields.edit")} onClick={() => setEditing(d)}><Icon name="settings" /></button>
+                    <button className="btn ghost sm" style={{color:"var(--fail)", padding:"2px 6px"}} title={t("workspace.customFields.delete")} aria-label={t("workspace.customFields.delete")} onClick={() => handleDelete(d)}><Icon name="x" /></button>
                   </div>
                 </td>
               </tr>
@@ -187,6 +191,7 @@ function CustomFieldsAdmin() {
 }
 
 function CustomFieldDefModal({ def, entityType, onClose, onSaved }) {
+  const { t } = useI18n();
   const modal = useModal(onClose);
   const isNew = !def;
   const [form, setForm] = useState({
@@ -220,42 +225,42 @@ function CustomFieldDefModal({ def, entityType, onClose, onSaved }) {
     <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...modal.overlayProps}>
       <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:440}} {...modal.dialogProps}>
         <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 16px"}}>
-          {isNew ? `New ${entityType} field` : `Edit "${def.label}"`}
+          {isNew ? t("workspace.customFields.newEntityField", { entity: t(CF_ENTITY_TYPES.find(type => type.id === entityType).singularKey) }) : t("workspace.customFields.editField", { label: def.label })}
         </h2>
         <div style={{display:"flex", flexDirection:"column", gap:10}}>
           <div>
-            <label style={L}>Label</label>
+            <label style={L}>{t("workspace.customFields.label")}</label>
             <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={form.label}
-                   placeholder="e.g. Browser" autoFocus
+                   placeholder={t("workspace.customFields.browserExample")} autoFocus
                    onChange={e => setForm(f => ({...f, label: e.target.value}))} />
-            {isNew && <div style={{fontSize:11, color:"var(--text-dim)", marginTop:3}}>Key is derived automatically (lowercase, underscores).</div>}
+            {isNew && <div style={{fontSize:11, color:"var(--text-dim)", marginTop:3}}>{t("workspace.customFields.keyHint")}</div>}
           </div>
           <div>
-            <label style={L}>Type</label>
+            <label style={L}>{t("workspace.customFields.type")}</label>
             <select className="input" style={{width:"100%"}} value={form.field_type}
                     onChange={e => setForm(f => ({...f, field_type: e.target.value}))}>
-              {CF_FIELD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              {CF_FIELD_TYPES.map(type => <option key={type} value={type}>{t(`workspace.customFields.fieldTypes.${type}`)}</option>)}
             </select>
           </div>
           {form.field_type === "select" && (
             <div>
-              <label style={L}>Options (comma-separated)</label>
+              <label style={L}>{t("workspace.customFields.commaOptions")}</label>
               <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={form.options}
-                     placeholder="chrome, firefox, safari"
+                     placeholder={t("workspace.customFields.optionExample")}
                      onChange={e => setForm(f => ({...f, options: e.target.value}))} />
             </div>
           )}
           <label style={{display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontSize:12.5}}>
             <input type="checkbox" checked={form.required} style={{accentColor:"var(--accent)"}}
                    onChange={e => setForm(f => ({...f, required: e.target.checked}))} />
-            <span>Required on create</span>
+            <span>{t("workspace.customFields.requiredOnCreate")}</span>
           </label>
         </div>
         {err && <div style={{color:"var(--fail)", fontSize:12, marginTop:10}}>{err}</div>}
         <div style={{display:"flex", gap:8, justifyContent:"flex-end", marginTop:20}}>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={onClose}>{t("workspace.customFields.cancel")}</button>
           <button className="btn accent" onClick={save} disabled={saving || !form.label.trim()}>
-            {saving ? "Saving…" : (isNew ? "Create" : "Save")}
+            {saving ? t("workspace.customFields.saving") : (isNew ? t("workspace.customFields.create") : t("workspace.customFields.save"))}
           </button>
         </div>
       </div>

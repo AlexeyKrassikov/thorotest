@@ -51,6 +51,7 @@ function buildHash(view, testId, runId) {
 }
 
 function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
+  const { t } = useI18n();
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   // Theme is user-toggleable from the topbar and persisted (the Tweaks panel
   // isn't reachable in the standalone app, so it can't own this).
@@ -81,7 +82,7 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
   // Show toast if initial hash was #/admin but user is not admin
   useEffect(() => {
     if (initial.view === "admin" && initialUser?.role !== "admin") {
-      setToastMsg("Admin access required");
+      setToastMsg(t("shell.adminRequired"));
       setToastSeverity("error");
     }
   }, []);
@@ -101,16 +102,16 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
   // Sync state from browser back/forward
   useEffect(() => {
     const onHashChange = () => {
-      const { view: v, testId: t, runId: r } = parseHash(window.location.hash);
+      const { view: v, testId: nextTestId, runId: r } = parseHash(window.location.hash);
       if (v === "admin" && currentUser?.role !== "admin") {
         window.location.hash = "#/overview";
-        setToastMsg("Admin access required");
+        setToastMsg(t("shell.adminRequired"));
         setToastSeverity("error");
         setView("overview");
         return;
       }
       setView(v);
-      setTestId(t);
+      setTestId(nextTestId);
       setRunId(r);
     };
     window.addEventListener('hashchange', onHashChange);
@@ -119,7 +120,7 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
 
   const nav = (id) => {
     if (id === "admin" && currentUser?.role !== "admin") {
-      setToastMsg("Admin access required");
+      setToastMsg(t("shell.adminRequired"));
       setToastSeverity("error");
       return;
     }
@@ -136,81 +137,81 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
   const openDefect = (id) => { setDefectFocus(id); setView("defects"); };
 
   const W = { label: "ThoroTest", href: "#/overview" };
-  let crumbs = [W, "Overview"];
+  let crumbs = [W, t("shell.overview")];
   let actions = null;
   let body = null;
   let hideTopbar = false;
 
   switch (view) {
     case "overview":
-      crumbs = [W, "Overview"];
+      crumbs = [W, t("shell.overview")];
       body = <Overview onNav={nav} onOpenTest={openTest} onOpenRun={openRun} onOpenDefect={openDefect} currentUser={currentUser} />;
       break;
     case "library":
-      crumbs = [W, "Test library"];
+      crumbs = [W, t("shell.library")];
       body = <Library onNav={nav} onOpenTest={openTest} currentUser={currentUser} />;
       hideTopbar = true;
       break;
     case "test-detail":
-      crumbs = [W, { label: "Test library", href: "#/library" }, testId || "TC-2301"];
+      crumbs = [W, { label: t("shell.library"), href: "#/library" }, testId || "TC-2301"];
       body = <TestDetail testId={testId} onBack={() => setView("library")} currentUser={currentUser} />;
       hideTopbar = true;
       break;
     case "runs":
-      crumbs = [W, "Runs & plans"];
+      crumbs = [W, t("shell.runsPlans")];
       body = <Runs onOpenRun={openRun} currentUser={currentUser} />;
       hideTopbar = true;
       break;
     case "run-detail":
-      crumbs = [W, { label: "Runs", href: "#/runs" }, runId || "R-1287"];
+      crumbs = [W, { label: t("shell.runs"), href: "#/runs" }, runId || "R-1287"];
       body = <RunDetail runId={runId} onBack={() => setView("runs")} currentUser={currentUser} />;
       hideTopbar = true;
       break;
     case "pipelines":
-      crumbs = [W, "CI pipelines"];
+      crumbs = [W, t("shell.pipelines")];
       body = <Pipelines currentUser={currentUser} />;
       break;
     case "defects":
-      crumbs = [W, "Defects"];
+      crumbs = [W, t("shell.defects")];
       body = <Defects focusId={defectFocus} currentUser={currentUser} />;
       break;
     case "requirements":
-      crumbs = [W, "Requirements"];
+      crumbs = [W, t("shell.requirements")];
       body = <Requirements currentUser={currentUser} />;
       break;
     case "insights":
-      crumbs = [W, "Insights"];
+      crumbs = [W, t("shell.insights")];
       body = <Insights currentUser={currentUser} />;
       break;
     case "ai":
-      crumbs = [W, "AI assistant"];
+      crumbs = [W, t("shell.ai")];
       body = <AIAssistant currentUser={currentUser} currentFolderId={window.__currentFolderId || null} />;
       break;
     case "integrations":
-      crumbs = [W, "Integrations"];
+      crumbs = [W, t("shell.integrations")];
       body = <Integrations currentUser={currentUser} />;
       break;
     case "docs":
-      crumbs = [W, "Docs & API"];
+      crumbs = [W, t("shell.docs")];
       body = <Docs currentUser={currentUser} />;
       hideTopbar = true;
       break;
     case "import":
-      crumbs = [W, "Import"];
+      crumbs = [W, t("shell.import")];
       body = <Import key={importNonce} currentUser={currentUser} />;
       break;
     case "settings":
-      crumbs = [W, "Settings"];
+      crumbs = [W, t("shell.settings")];
       body = <Settings currentUser={currentUser} onProfileUpdate={onProfileUpdate} />;
       hideTopbar = true;
       break;
     case "admin":
-      crumbs = [W, "User Management"];
+      crumbs = [W, t("shell.users")];
       body = <AdminPage currentUser={currentUser} onNav={nav} />;
       hideTopbar = true;
       break;
     case "my-work":
-      crumbs = [W, "My work"];
+      crumbs = [W, t("shell.myWork")];
       body = <MyWork currentUser={currentUser} />;
       hideTopbar = true;
       break;
@@ -220,7 +221,7 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
 
   return (
     <div className="app" data-screen-label={view}>
-      <a className="skip-link" href="#main-content">Skip to content</a>
+      <a className="skip-link" href="#main-content">{t("shell.skipContent")}</a>
       <Sidebar
         current={view === "test-detail" ? "library" : view === "run-detail" ? "runs" : view}
         onNav={(v) => { setSidebarOpen(false); nav(v); }}
@@ -236,7 +237,7 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
         <button
           type="button"
           className="sidebar-scrim"
-          aria-label="Close menu"
+          aria-label={t("shell.closeMenu")}
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -258,22 +259,22 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
 
       <Toast msg={toastMsg} severity={toastSeverity} onDone={() => { setToastMsg(null); setToastSeverity(null); }} />
 
-      <TweaksPanel title="Tweaks">
-        <TweakSection label="Appearance">
-          <TweakRadio label="Theme" value={theme} onChange={v => {
+      <TweaksPanel title={t("shell.tweaks")}>
+        <TweakSection label={t("shell.appearance")}>
+          <TweakRadio label={t("shell.theme")} value={theme} onChange={v => {
             setTheme(v);
             try { localStorage.setItem("tt-theme", v); } catch (e) {}
           }} options={[
-            { value: "dark", label: "Dark" },
-            { value: "light", label: "Light" },
+            { value: "dark", label: t("shell.dark") },
+            { value: "light", label: t("shell.light") },
           ]} />
-          <TweakRadio label="Density" value={tweaks.density} onChange={v => setTweak("density", v)} options={[
-            { value: "compact", label: "Compact" },
-            { value: "comfortable", label: "Comfortable" },
+          <TweakRadio label={t("shell.density")} value={tweaks.density} onChange={v => setTweak("density", v)} options={[
+            { value: "compact", label: t("shell.compact") },
+            { value: "comfortable", label: t("shell.comfortable") },
           ]} />
         </TweakSection>
-        <TweakSection label="Navigate">
-          <TweakButton label="Back to app" onClick={() => setView("overview")} />
+        <TweakSection label={t("shell.navigate")}>
+          <TweakButton label={t("shell.backToApp")} onClick={() => setView("overview")} />
         </TweakSection>
       </TweaksPanel>
     </div>
@@ -284,6 +285,7 @@ function App({ currentUser: initialUser, onLogout, onProfileUpdate }) {
 const root = ReactDOM.createRoot(document.getElementById("root"));
 
 function AuthRoot() {
+  const { t } = useI18n();
   const [currentUser, setCurrentUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [pendingOAuth, setPendingOAuth] = useState(null);
@@ -334,7 +336,7 @@ function AuthRoot() {
   if (!authChecked) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg)" }}>
-        <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading…</div>
+        <div style={{ color: "var(--text-muted)", fontSize: 13 }}>{t("shell.loading")}</div>
       </div>
     );
   }
@@ -407,6 +409,7 @@ function AuthRoot() {
 }
 
 async function boot() {
+  window.TH_I18N.initialize();
   root.render(
     <I18nProvider>
       <AuthRoot />

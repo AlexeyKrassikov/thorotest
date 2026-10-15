@@ -28,6 +28,7 @@ from ..audit_utils import (
     EVT_PASSWORD_RESET_REQUEST, EVT_PASSWORD_RESET,
 )
 from ..emailer import send_email
+from ..localization import language_from_header, translate
 
 router = APIRouter(tags=["auth"])
 
@@ -288,13 +289,12 @@ def forgot_password(
         db.commit()
         base = os.getenv("TESTHUB_BASE_URL", "http://localhost:8000").rstrip("/")
         link = f"{base}/#/reset-password/{raw}"
-        body = (
-            f"A password reset was requested for your ThoroTest account.\n\n"
-            f"Open this link to choose a new password (valid for {RESET_TOKEN_TTL_HOURS} hour):\n\n"
-            f"  {link}\n\n"
-            f"If you did not request this, you can ignore this email."
+        subject = translate("email.reset.subject", user.language)
+        body = translate(
+            "email.reset.body", user.language,
+            hours=RESET_TOKEN_TTL_HOURS, link=link,
         )
-        background_tasks.add_task(send_email, user.email, "Reset your ThoroTest password", body)
+        background_tasks.add_task(send_email, user.email, subject, body)
         log_event(
             EVT_PASSWORD_RESET_REQUEST,
             actor_id=user.id,
@@ -302,7 +302,10 @@ def forgot_password(
             description=f"Password reset requested for {user.email}",
             ip_address=ip,
         )
-    return {"detail": "If that email exists, a reset link has been sent."}
+    return {"detail": translate(
+        "If that email exists, a reset link has been sent.",
+        language_from_header(request.headers.get("accept-language")),
+    )}
 
 
 @router.post("/auth/reset-password", status_code=204)

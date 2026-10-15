@@ -1,6 +1,7 @@
 // Global defects view — list, filter, manage all defects
 
 function Defects({ focusId }) {
+  const { t, lang } = useI18n();
   const [defects, setDefects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(focusId || "");
@@ -84,20 +85,20 @@ function Defects({ focusId }) {
     <div style={{display:"flex", flexDirection:"column", height:"100%"}}>
       <div className="page-h" style={{padding:"18px 22px 0", marginBottom:14}}>
         <div>
-          <h1 className="page-title">Defects</h1>
-          <div className="page-sub">All bugs filed against tests and runs — track, triage, close.</div>
+          <h1 className="page-title">{t("execution.defects.title")}</h1>
+          <div className="page-sub">{t("execution.defects.subtitle")}</div>
         </div>
         <div className="actions">
-          <button className="btn accent" onClick={() => setShowCreate(true)}><Icon name="plus" /> New defect</button>
+          <button className="btn accent" onClick={() => setShowCreate(true)}><Icon name="plus" /> {t("execution.defects.newDefect")}</button>
         </div>
       </div>
 
       {/* Summary chips */}
       <div style={{display:"flex", gap:8, padding:"0 22px 14px"}}>
         {[
-          { label: "Open", count: openCount, color: "var(--fail)", status: "open" },
-          { label: "In progress", count: inProgressCount, color: "var(--warn)", status: "in_progress" },
-          { label: "Resolved / closed", count: resolvedCount, color: "var(--pass)", status: "resolved" },
+          { labelKey: "open", count: openCount, color: "var(--fail)", status: "open" },
+          { labelKey: "inProgress", count: inProgressCount, color: "var(--warn)", status: "in_progress" },
+          { labelKey: "resolvedClosed", count: resolvedCount, color: "var(--pass)", status: "resolved" },
         ].map(c => (
           <button
             key={c.status}
@@ -106,7 +107,7 @@ function Defects({ focusId }) {
             onClick={() => setFilterStatus(filterStatus === c.status ? "all" : c.status)}
           >
             <span style={{color:c.color, fontWeight:700}}>{c.count}</span>
-            <span>{c.label}</span>
+            <span>{t(`execution.defects.${c.labelKey}`)}</span>
           </button>
         ))}
       </div>
@@ -116,44 +117,44 @@ function Defects({ focusId }) {
         <input
           className="input"
           style={{width:220}}
-          placeholder="Search defects…"
+          placeholder={t("execution.defects.search")}
           value={search}
           onChange={e => setSearch(e.target.value)}
           onKeyDown={handleSearch}
         />
         <select className="input" style={{width:130}} value={filterSeverity} onChange={e => setFilterSeverity(e.target.value)}>
-          <option value="all">All severities</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="med">Medium</option>
-          <option value="low">Low</option>
+          <option value="all">{t("execution.defects.allSeverities")}</option>
+          <option value="critical">{t("execution.defects.critical")}</option>
+          <option value="high">{t("execution.defects.high")}</option>
+          <option value="med">{t("execution.defects.medium")}</option>
+          <option value="low">{t("execution.defects.low")}</option>
         </select>
         {(search || filterStatus !== "all" || filterSeverity !== "all") && (
-          <button className="btn sm ghost" onClick={() => { setSearch(""); setFilterStatus("all"); setFilterSeverity("all"); }}>Clear</button>
+          <button className="btn sm ghost" onClick={() => { setSearch(""); setFilterStatus("all"); setFilterSeverity("all"); }}>{t("execution.defects.clear")}</button>
         )}
         <div className="spacer" />
-        <span className="mono dim" style={{fontSize:11}}>{defects.length} defect{defects.length !== 1 ? "s" : ""}</span>
+        <span className="mono dim" style={{fontSize:11}}>{t(defects.length === 1 ? "execution.defects.defectCountOne" : "execution.defects.defectCount", { count: defects.length })}</span>
       </div>
 
       {/* Table */}
       <div style={{flex:1, overflowY:"auto", padding:"0 22px 32px"}}>
         <div className="card" style={{padding:0}}>
           {loading ? (
-            <div className="mono dim" style={{padding:"32px", textAlign:"center"}}>Loading…</div>
+            <div className="mono dim" style={{padding:"32px", textAlign:"center"}}>{t("execution.defects.loading")}</div>
           ) : defects.length === 0 ? (
-            <div className="mono dim" style={{padding:"32px", textAlign:"center"}}>No defects found.</div>
+            <div className="mono dim" style={{padding:"32px", textAlign:"center"}}>{t("execution.defects.noneFound")}</div>
           ) : (
             <table className="table">
               <thead>
                 <tr>
-                  <th style={{width:90}}>ID</th>
-                  <th>Title</th>
-                  <th style={{width:130}}>Status</th>
-                  <th style={{width:90}}>Severity</th>
-                  <th style={{width:90}}>Test</th>
-                  <th style={{width:90}}>Run</th>
-                  <th style={{width:110}}>Tracker</th>
-                  <th style={{width:80}}>Filed</th>
+                  <th style={{width:90}}>{t("execution.defects.id")}</th>
+                  <th>{t("execution.defects.defectTitle")}</th>
+                  <th style={{width:130}}>{t("execution.defects.status")}</th>
+                  <th style={{width:90}}>{t("execution.defects.severity")}</th>
+                  <th style={{width:90}}>{t("execution.defects.test")}</th>
+                  <th style={{width:90}}>{t("execution.defects.run")}</th>
+                  <th style={{width:110}}>{t("execution.defects.tracker")}</th>
+                  <th style={{width:80}}>{t("execution.defects.filed")}</th>
                   <th style={{width:32}}></th>
                 </tr>
               </thead>
@@ -168,12 +169,12 @@ function Defects({ focusId }) {
                           {d.description}
                         </div>
                       )}
-                      {d.created_by && <div style={{fontSize:10.5, color:"var(--text-dim)", marginTop:2}}>Filed by {d.created_by}</div>}
+                      {d.created_by && <div style={{fontSize:10.5, color:"var(--text-dim)", marginTop:2}}>{t("execution.defects.filedBy", { user: d.created_by })}</div>}
                       {cfDefs.length > 0 && d.custom_fields && Object.keys(d.custom_fields).length > 0 && (
                         <div style={{display:"flex", gap:4, flexWrap:"wrap", marginTop:3}}>
                           {cfDefs.filter(f => d.custom_fields[f.key] !== undefined && d.custom_fields[f.key] !== null && d.custom_fields[f.key] !== "").map(f => (
                             <span key={f.key} className="tag" style={{fontSize:10}}>
-                              {f.label}: {f.field_type === "checkbox" ? (d.custom_fields[f.key] ? "yes" : "no") : String(d.custom_fields[f.key])}
+                              {f.label}: {f.field_type === "checkbox" ? (d.custom_fields[f.key] ? t("execution.defects.yes") : t("execution.defects.no")) : String(d.custom_fields[f.key])}
                             </span>
                           ))}
                         </div>
@@ -186,13 +187,13 @@ function Defects({ focusId }) {
                         value={d.status}
                         onChange={e => handleStatusChange(d.id, e.target.value)}
                       >
-                        <option value="open">open</option>
-                        <option value="in_progress">in_progress</option>
-                        <option value="resolved">resolved</option>
-                        <option value="closed">closed</option>
+                        <option value="open">{t("execution.overview.statusValueOpen")}</option>
+                        <option value="in_progress">{t("execution.overview.statusValueInProgress")}</option>
+                        <option value="resolved">{t("execution.overview.statusValueResolved")}</option>
+                        <option value="closed">{t("execution.overview.statusValueClosed")}</option>
                       </select>
                     </td>
-                    <td><span className={"tag " + severityClass(d.severity)}>{d.severity}</span></td>
+                    <td><span className={"tag " + severityClass(d.severity)}>{({ critical: "critical", high: "high", med: "med", low: "low" })[d.severity] ? t(`execution.defects.severityValue${({ critical: "Critical", high: "High", med: "Med", low: "Low" })[d.severity]}`) : d.severity}</span></td>
                     <td className="mono" style={{fontSize:11}}>{d.test_id || <span className="dim">—</span>}</td>
                     <td className="mono" style={{fontSize:11}}>{d.run_id || <span className="dim">—</span>}</td>
                     <td style={{fontSize:11}}>
@@ -200,32 +201,32 @@ function Defects({ focusId }) {
                         <a href={d.external_url || "#"} target="_blank" rel="noreferrer" className="mono" style={{color:"var(--accent)", textDecoration:"none"}}>{d.external_key}</a>
                       ) : (
                         <>
-                          <button className="btn ghost sm" style={{padding:"2px 6px"}} disabled={pushingId === d.id} onClick={() => handlePush(d.id)} title="Create a Jira bug from this defect">
-                            {pushingId === d.id ? "Pushing…" : "Push to Jira"}
+                          <button className="btn ghost sm" style={{padding:"2px 6px"}} disabled={pushingId === d.id} onClick={() => handlePush(d.id)} title={t("execution.defects.createJira")}>
+                            {pushingId === d.id ? t("execution.defects.pushing") : t("execution.defects.pushJira")}
                           </button>
                           {pushErr && pushErr.id === d.id && <div style={{fontSize:10, color:"var(--fail)", marginTop:2, maxWidth:100}}>{pushErr.msg}</div>}
                         </>
                       )}
                     </td>
-                    <td className="dim" style={{fontSize:11}}>{d.created_at || "—"}</td>
+                    <td className="dim" style={{fontSize:11}}>{d.created_at ? (lang === "ru" ? new Date(d.created_at).toLocaleDateString(lang) : d.created_at) : "—"}</td>
                     <td style={{whiteSpace:"nowrap"}}>
                       <button
                         className="btn ghost sm"
                         style={{padding:"2px 6px"}}
                         onClick={() => setEditingDefect(d)}
-                        title="Edit"
+                        title={t("execution.defects.edit")}
                       ><Icon name="settings" /></button>
                       <button
                         className="btn ghost sm"
                         style={{padding:"2px 6px"}}
                         onClick={() => setHistoryId(d.id)}
-                        title="Change history"
+                        title={t("execution.defects.changeHistory")}
                       ><Icon name="clock" /></button>
                       <button
                         className="btn ghost sm"
                         style={{color:"var(--fail)", padding:"2px 6px"}}
                         onClick={() => setDeleteConfirmId(d.id)}
-                        title="Delete"
+                        title={t("execution.defects.delete")}
                       ><Icon name="x" /></button>
                     </td>
                   </tr>
@@ -256,9 +257,9 @@ function Defects({ focusId }) {
         <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...historyModal.overlayProps}>
           <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, width:520, maxHeight:"85vh", overflowY:"auto"}} {...historyModal.dialogProps}>
             <div style={{display:"flex", alignItems:"center", padding:"18px 22px 0"}}>
-              <h2 style={{fontSize:15, fontWeight:600, margin:0}}>Change history — {historyId}</h2>
+              <h2 style={{fontSize:15, fontWeight:600, margin:0}}>{t("execution.defects.changeHistory")} — {historyId}</h2>
               <div className="spacer" style={{flex:1}} />
-              <button className="btn ghost sm" onClick={() => setHistoryId(null)}><Icon name="x" /></button>
+              <button className="btn ghost sm" onClick={() => setHistoryId(null)} aria-label={t("execution.overview.close")} title={t("execution.overview.close")}><Icon name="x" /></button>
             </div>
             <ChangeHistory entityType="defect" entityId={historyId} />
           </div>
@@ -268,11 +269,11 @@ function Defects({ focusId }) {
       {deleteConfirmId && (
         <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...deleteModal.overlayProps}>
           <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:360}} {...deleteModal.dialogProps}>
-            <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 10px"}}>Delete {deleteConfirmId}?</h2>
-            <p style={{fontSize:12.5, color:"var(--text-muted)", margin:"0 0 20px"}}>This action is permanent.</p>
+            <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 10px"}}>{t("execution.defects.deleteConfirm", { id: deleteConfirmId })}</h2>
+            <p style={{fontSize:12.5, color:"var(--text-muted)", margin:"0 0 20px"}}>{t("execution.defects.permanent")}</p>
             <div style={{display:"flex", gap:8, justifyContent:"flex-end"}}>
-              <button className="btn" onClick={() => setDeleteConfirmId(null)}>Cancel</button>
-              <button className="btn" style={{background:"var(--fail)", color:"white", border:"none"}} onClick={() => handleDelete(deleteConfirmId)}>Delete</button>
+              <button className="btn" onClick={() => setDeleteConfirmId(null)}>{t("execution.defects.cancel")}</button>
+              <button className="btn" style={{background:"var(--fail)", color:"white", border:"none"}} onClick={() => handleDelete(deleteConfirmId)}>{t("execution.defects.delete")}</button>
             </div>
           </div>
         </div>
@@ -282,6 +283,7 @@ function Defects({ focusId }) {
 }
 
 function CreateDefectModal({ runs, onClose, onCreated }) {
+  const { t } = useI18n();
   const modal = useModal(onClose);
   const [form, setForm] = useState({ title: "", severity: "med", run_id: "", test_id: "", description: "" });
   const [customFields, setCustomFields] = useState({});
@@ -310,35 +312,35 @@ function CreateDefectModal({ runs, onClose, onCreated }) {
   return (
     <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...modal.overlayProps}>
       <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:500}} {...modal.dialogProps}>
-        <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 16px"}}>New defect</h2>
+        <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 16px"}}>{t("execution.defects.newDefectTitle")}</h2>
         <div style={{display:"flex", flexDirection:"column", gap:10}}>
           <div>
-            <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>Title</label>
-            <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={form.title} placeholder="Describe the bug…" onChange={e => setForm(f => ({...f, title: e.target.value}))} autoFocus />
+            <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>{t("execution.defects.defectTitle")}</label>
+            <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={form.title} placeholder={t("execution.defects.describeBug")} onChange={e => setForm(f => ({...f, title: e.target.value}))} autoFocus />
           </div>
           <div>
-            <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>Description (optional)</label>
-            <textarea className="textarea" style={{width:"100%", boxSizing:"border-box", minHeight:60}} value={form.description} placeholder="Steps to reproduce, root cause…" onChange={e => setForm(f => ({...f, description: e.target.value}))} />
+            <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>{t("execution.defects.descriptionOptional")}</label>
+            <textarea className="textarea" style={{width:"100%", boxSizing:"border-box", minHeight:60}} value={form.description} placeholder={t("execution.defects.reproRootCause")} onChange={e => setForm(f => ({...f, description: e.target.value}))} />
           </div>
           <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
             <div>
-              <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>Severity</label>
+              <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>{t("execution.defects.severityLabel")}</label>
               <select className="input" value={form.severity} onChange={e => setForm(f => ({...f, severity: e.target.value}))}>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="med">Medium</option>
-                <option value="low">Low</option>
+                <option value="critical">{t("execution.defects.critical")}</option>
+                <option value="high">{t("execution.defects.high")}</option>
+                <option value="med">{t("execution.defects.medium")}</option>
+                <option value="low">{t("execution.defects.low")}</option>
               </select>
             </div>
             <div>
-              <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>Linked test (optional)</label>
+              <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>{t("execution.defects.linkedTestOptional")}</label>
               <input className="input" value={form.test_id} placeholder="TC-1045" onChange={e => setForm(f => ({...f, test_id: e.target.value}))} />
             </div>
           </div>
           <div>
-            <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>Linked run (optional)</label>
+            <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>{t("execution.defects.linkedRunOptional")}</label>
             <select className="input" value={form.run_id} onChange={e => setForm(f => ({...f, run_id: e.target.value}))}>
-              <option value="">— none —</option>
+              <option value="">{t("execution.defects.none")}</option>
               {runs.map(r => <option key={r.id} value={r.id}>{r.id} · {r.name.slice(0,40)}</option>)}
             </select>
           </div>
@@ -346,9 +348,9 @@ function CreateDefectModal({ runs, onClose, onCreated }) {
         </div>
         {err && <div style={{color:"var(--fail)", fontSize:12, marginTop:10}}>{err}</div>}
         <div style={{display:"flex", gap:8, justifyContent:"flex-end", marginTop:20}}>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={onClose}>{t("execution.defects.cancel")}</button>
           <button className="btn accent" onClick={handleCreate} disabled={saving || !form.title.trim()}>
-            {saving ? "Creating…" : "Create"}
+            {saving ? t("execution.defects.creating") : t("execution.defects.create")}
           </button>
         </div>
       </div>
@@ -357,6 +359,7 @@ function CreateDefectModal({ runs, onClose, onCreated }) {
 }
 
 function EditDefectModal({ defect, onClose, onSaved }) {
+  const { t } = useI18n();
   const modal = useModal(onClose);
   const [form, setForm] = useState({
     title: defect.title || "",
@@ -391,33 +394,33 @@ function EditDefectModal({ defect, onClose, onSaved }) {
   return (
     <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...modal.overlayProps}>
       <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:500, maxHeight:"85vh", overflowY:"auto"}} {...modal.dialogProps}>
-        <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 16px"}}>Edit {defect.id}</h2>
+        <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 16px"}}>{t("execution.defects.editTitle", { id: defect.id })}</h2>
         <div style={{display:"flex", flexDirection:"column", gap:10}}>
           <div>
-            <label style={L}>Title</label>
+            <label style={L}>{t("execution.defects.defectTitle")}</label>
             <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} autoFocus />
           </div>
           <div>
-            <label style={L}>Description</label>
+            <label style={L}>{t("execution.defects.description")}</label>
             <textarea className="textarea" style={{width:"100%", boxSizing:"border-box", minHeight:60}} value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} />
           </div>
           <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10}}>
             <div>
-              <label style={L}>Severity</label>
+              <label style={L}>{t("execution.defects.severityLabel")}</label>
               <select className="input" value={form.severity} onChange={e => setForm(f => ({...f, severity: e.target.value}))}>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="med">Medium</option>
-                <option value="low">Low</option>
+                <option value="critical">{t("execution.defects.critical")}</option>
+                <option value="high">{t("execution.defects.high")}</option>
+                <option value="med">{t("execution.defects.medium")}</option>
+                <option value="low">{t("execution.defects.low")}</option>
               </select>
             </div>
             <div>
-              <label style={L}>Status</label>
+              <label style={L}>{t("execution.defects.statusLabel")}</label>
               <select className="input" value={form.status} onChange={e => setForm(f => ({...f, status: e.target.value}))}>
-                <option value="open">Open</option>
-                <option value="in_progress">In progress</option>
-                <option value="resolved">Resolved</option>
-                <option value="closed">Closed</option>
+                <option value="open">{t("execution.defects.statusOpen")}</option>
+                <option value="in_progress">{t("execution.defects.statusInProgress")}</option>
+                <option value="resolved">{t("execution.defects.statusResolved")}</option>
+                <option value="closed">{t("execution.defects.statusClosed")}</option>
               </select>
             </div>
           </div>
@@ -425,9 +428,9 @@ function EditDefectModal({ defect, onClose, onSaved }) {
         </div>
         {err && <div style={{color:"var(--fail)", fontSize:12, marginTop:10}}>{err}</div>}
         <div style={{display:"flex", gap:8, justifyContent:"flex-end", marginTop:20}}>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={onClose}>{t("execution.defects.cancel")}</button>
           <button className="btn accent" onClick={save} disabled={saving || !form.title.trim()}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? t("execution.defects.saving") : t("execution.defects.save")}
           </button>
         </div>
       </div>

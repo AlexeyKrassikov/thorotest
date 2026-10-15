@@ -12,9 +12,16 @@ function flattenFolders(list) {
   return out;
 }
 
+function formatLibraryDate(value, lang) {
+  if (!value) return value;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US");
+}
+
 // One folder row, rendered recursively so nested subfolders (any depth) are
 // navigable — the old tree only rendered the top two levels.
 function FolderRow({ node, depth, openFolders, toggleFolder, selectFolder, activeFolder, favoritedIds, toggleFavorite }) {
+  const { t } = useI18n();
   const hasChildren = node.children && node.children.length > 0;
   const open = !!openFolders[node.id];
   return (
@@ -29,7 +36,7 @@ function FolderRow({ node, depth, openFolders, toggleFolder, selectFolder, activ
         <span>{node.name}</span>
         <span className="count">{node.count}</span>
         <span
-          title={favoritedIds.has(node.id) ? "Remove from favorites" : "Add to favorites"}
+          title={favoritedIds.has(node.id) ? t("cases.library.removeFavorite") : t("cases.library.addFavorite")}
           style={{marginLeft:"auto", cursor:"pointer", color: favoritedIds.has(node.id) ? "var(--warn)" : "var(--text-dim)", fontSize:12, lineHeight:1}}
           onClick={(e) => toggleFavorite(e, node.id)}
         >{favoritedIds.has(node.id) ? "★" : "☆"}</span>
@@ -52,6 +59,7 @@ function FolderRow({ node, depth, openFolders, toggleFolder, selectFolder, activ
 }
 
 function Library({ onNav, onOpenTest, currentUser }) {
+  const { t, lang } = useI18n();
   const [refreshKey, setRefreshKey] = useState(0);
   const { data: D, loading, error } = useInitialData(refreshKey);
   const [openFolders, setOpenFolders] = useState({ auth: true, checkout: true });
@@ -162,7 +170,7 @@ function Library({ onNav, onOpenTest, currentUser }) {
 
   const confirmDelete = async () => {
     try {
-      await fetch(`/api/tests/${deleteTarget.id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${localStorage.getItem("th_token")}` } });
+      await fetch(`/api/tests/${deleteTarget.id}`, { method: "DELETE", headers: { ...window.authHeaders() } });
     } catch (e) {}
     setDeleteTarget(null);
     refresh();
@@ -172,7 +180,7 @@ function Library({ onNav, onOpenTest, currentUser }) {
     try {
       await fetch("/api/tests/bulk", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("th_token")}` },
+        headers: { ...window.authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ action: "delete", ids: [...selected] }),
       });
     } catch (e) {}
@@ -184,7 +192,7 @@ function Library({ onNav, onOpenTest, currentUser }) {
     try {
       await fetch("/api/tests/bulk", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("th_token")}` },
+        headers: { ...window.authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ action: "update", ids: [...selected], payload: { status } }),
       });
     } catch (e) {}
@@ -196,7 +204,7 @@ function Library({ onNav, onOpenTest, currentUser }) {
     try {
       await fetch("/api/tests/bulk", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("th_token")}` },
+        headers: { ...window.authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ action: "update", ids: [...selected], payload: { folder_id } }),
       });
     } catch (e) {}
@@ -206,13 +214,13 @@ function Library({ onNav, onOpenTest, currentUser }) {
 
   if (loading && !D) return (
     <div style={{display:"flex", height:"100%", alignItems:"center", justifyContent:"center"}}>
-      <span className="mono dim">Loading…</span>
+      <span className="mono dim">{t("cases.library.loading")}</span>
     </div>
   );
 
   if (!D) return (
     <div style={{display:"flex", height:"100%", alignItems:"center", justifyContent:"center"}}>
-      <span className="mono dim">Error loading data{error ? `: ${error}` : ""}.</span>
+      <span className="mono dim">{t("cases.library.loadError", { error: error ? `: ${error}` : "" })}</span>
     </div>
   );
 
@@ -220,21 +228,21 @@ function Library({ onNav, onOpenTest, currentUser }) {
   const allFoldersList = flattenFolders(D.folders);
 
   return (
-    <div style={{display:"grid", gridTemplateColumns:"260px 1fr", height:"100%", overflow:"hidden"}}>
+    <div className="library-layout" style={{display:"grid", gridTemplateColumns:"260px 1fr", height:"100%", overflow:"hidden"}}>
       {/* Tree sidebar */}
-      <div style={{borderRight:"1px solid var(--border)", display:"flex", flexDirection:"column", background:"var(--bg-2)", overflow:"hidden"}}>
+      <div className="library-folders" style={{borderRight:"1px solid var(--border)", display:"flex", flexDirection:"column", background:"var(--bg-2)", overflow:"hidden"}}>
         <div style={{padding:"12px 12px 6px", display:"flex", alignItems:"center", gap:8, borderBottom:"1px solid var(--border)"}}>
-          <div style={{fontSize:12, fontWeight:600}}>Folders</div>
-          <div className="card-sub" style={{fontSize:10.5}}>{totalCount} tests</div>
+          <div style={{fontSize:12, fontWeight:600}}>{t("cases.library.folders")}</div>
+          <div className="card-sub" style={{fontSize:10.5}}>{t("cases.library.testsCount", { count: totalCount })}</div>
           {window.can && window.can(currentUser, "write") && (
-            <button className="btn ghost icon" style={{marginLeft:"auto"}} onClick={() => setShowNewTest(true)}><Icon name="plus" /></button>
+            <button className="btn ghost icon" style={{marginLeft:"auto"}} onClick={() => setShowNewTest(true)} aria-label={t("cases.library.newTest")}><Icon name="plus" /></button>
           )}
         </div>
         <div className="tree" style={{padding:"8px 8px", overflowY:"auto", flex:1}}>
           <div className={"tree-row" + (activeFolder === null ? " active" : "")} {...clickable(() => selectFolder(null))}>
             <span className="caret"></span>
             <Icon name="grid" />
-            <span>All tests</span>
+            <span>{t("cases.library.allTests")}</span>
             <span className="count">{totalCount}</span>
           </div>
           {D.folders.map(f => (
@@ -252,28 +260,28 @@ function Library({ onNav, onOpenTest, currentUser }) {
           ))}
         </div>
         <div style={{padding:"10px 12px", borderTop:"1px solid var(--border)", fontSize:11, color:"var(--text-dim)"}}>
-          <div className="mono" style={{fontSize:10.5}}>tests/ is synced from git</div>
+          <div className="mono" style={{fontSize:10.5}}>{t("cases.library.syncedFromGit")}</div>
           <div style={{display:"flex", alignItems:"center", gap:6, marginTop:4}}>
-            <span className="status pass" style={{padding:"1px 5px"}}>UP TO DATE</span>
+            <span className="status pass" style={{padding:"1px 5px"}}>{t("cases.library.upToDate")}</span>
             <span className="mono dim">main · a3c9f1d</span>
           </div>
         </div>
       </div>
 
       {/* Main */}
-      <div style={{display:"flex", flexDirection:"column", overflow:"hidden"}}>
+      <div className="library-content" style={{display:"flex", flexDirection:"column", overflow:"hidden"}}>
         {/* Toolbar */}
         <div className="toolbar">
           <div style={{fontSize:14, fontWeight:600, marginRight:8}}>
-            {activeFolder ? (allFoldersList.find(f=>f.id===activeFolder)?.name || activeFolder) : "All tests"}
+            {activeFolder ? (allFoldersList.find(f=>f.id===activeFolder)?.name || activeFolder) : t("cases.library.allTests")}
           </div>
-          <div className="card-sub">{testsLoading ? "…" : `${filtered.length} tests`}</div>
+          <div className="card-sub">{testsLoading ? "…" : t("cases.library.testsCount", { count: filtered.length })}</div>
           <div className="spacer" />
 
           <input
             className="input"
             style={{height:28, fontSize:12, padding:"2px 8px", width:180}}
-            placeholder="Search tests…"
+            placeholder={t("cases.library.search")}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -281,7 +289,7 @@ function Library({ onNav, onOpenTest, currentUser }) {
           <div style={{position:"relative"}}>
             <div className={"chip" + (filterStatus !== "all" ? " active" : "")} {...clickable(() => { setFilterStatusOpen(o => !o); setFilterTypeOpen(false); })}>
               <Icon name="filter" />
-              Status: <b style={{marginLeft:2, color:"var(--text)"}}>{filterStatus}</b>
+              {t("cases.library.status")}: <b style={{marginLeft:2, color:"var(--text)"}}>{filterStatus === "all" ? t("cases.library.allValue") : t(`cases.library.${filterStatus}Value`)}</b>
             </div>
             {filterStatusOpen && (
               <>
@@ -290,7 +298,7 @@ function Library({ onNav, onOpenTest, currentUser }) {
                   {["all","pass","fail","warn","skip","pending"].map(st => (
                     <div key={st} style={{padding:"7px 12px", cursor:"pointer", background: st === filterStatus ? "var(--accent-soft)" : "transparent", fontSize:12}}
                       onClick={() => { setFilterStatus(st); setFilterStatusOpen(false); }}>
-                      {st === "all" ? "All statuses" : <StatusBadge s={st} />}
+                      {st === "all" ? t("cases.library.allStatuses") : <StatusBadge s={st} />}
                     </div>
                   ))}
                 </div>
@@ -300,13 +308,13 @@ function Library({ onNav, onOpenTest, currentUser }) {
 
           <div style={{position:"relative"}}>
             <div className={"chip" + (filterType !== "all" ? " active" : "")} {...clickable(() => { setFilterTypeOpen(o => !o); setFilterStatusOpen(false); })}>
-              Type: <b style={{color:"var(--text)", marginLeft:2}}>{filterType}</b>
+              {t("cases.library.type")}: <b style={{color:"var(--text)", marginLeft:2}}>{t(`cases.library.${filterType}Value`)}</b>
             </div>
             {filterTypeOpen && (
               <>
                 <div aria-hidden="true" style={{position:"fixed", inset:0, zIndex:99}} onClick={() => setFilterTypeOpen(false)} />
                 <div style={{position:"absolute", top:"100%", right:0, zIndex:100, background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:"var(--radius)", minWidth:130, marginTop:4, boxShadow:"0 4px 12px rgba(0,0,0,0.3)", overflow:"hidden"}}>
-                  {[["all","All types"],["manual","Manual"],["automated","Automated"]].map(([v,label]) => (
+                  {[["all", t("cases.library.allTypes")], ["manual", t("cases.library.manual")], ["automated", t("cases.library.automated")]].map(([v,label]) => (
                     <div key={v} style={{padding:"7px 12px", cursor:"pointer", background: v === filterType ? "var(--accent-soft)" : "transparent", fontSize:12}}
                       onClick={() => { setFilterType(v); setFilterTypeOpen(false); }}>
                       {label}
@@ -319,7 +327,7 @@ function Library({ onNav, onOpenTest, currentUser }) {
 
           <div style={{position:"relative"}}>
             <div className={"chip" + (filterTag !== "all" ? " active" : "")} {...clickable(() => { setFilterTagOpen(o => !o); setFilterStatusOpen(false); setFilterTypeOpen(false); })}>
-              Tag: <b style={{color:"var(--text)", marginLeft:2}}>{filterTag}</b>
+              {t("cases.library.tag")}: <b style={{color:"var(--text)", marginLeft:2}}>{filterTag === "all" ? t("cases.library.allValue") : filterTag}</b>
             </div>
             {filterTagOpen && (
               <>
@@ -328,29 +336,29 @@ function Library({ onNav, onOpenTest, currentUser }) {
                   {["all", ...allTags].map(tg => (
                     <div key={tg} style={{padding:"7px 12px", cursor:"pointer", background: tg === filterTag ? "var(--accent-soft)" : "transparent", fontSize:12}}
                       onClick={() => { setFilterTag(tg); setFilterTagOpen(false); }}>
-                      {tg === "all" ? "All tags" : tg}
+                      {tg === "all" ? t("cases.library.allTags") : tg}
                     </div>
                   ))}
-                  {allTags.length === 0 && <div style={{padding:"7px 12px", fontSize:12, color:"var(--text-muted)"}}>No tags yet</div>}
+                  {allTags.length === 0 && <div style={{padding:"7px 12px", fontSize:12, color:"var(--text-muted)"}}>{t("cases.library.noTags")}</div>}
                 </div>
               </>
             )}
           </div>
 
-          <div className="chip">Owner: <b style={{color:"var(--text)", marginLeft:2}}>any</b></div>
+          <div className="chip">{t("cases.library.owner")}: <b style={{color:"var(--text)", marginLeft:2}}>{t("cases.library.any")}</b></div>
 
           <button className="btn sm" style={{marginLeft:8, background:"var(--purple)", borderColor:"var(--purple)", color:"oklch(0.16 0 0)", display:"flex", alignItems:"center", gap:5}}
-            onClick={() => setAiOpen(true)} title={activeFolder ? "Suggest edge cases for this folder" : "Suggest edge cases (pick a folder)"}>
-            <Icon name="sparkle" /> AI
+            onClick={() => setAiOpen(true)} title={activeFolder ? t("cases.library.suggestFolder") : t("cases.library.suggestPickFolder")}>
+            <Icon name="sparkle" /> {t("cases.library.ai")}
           </button>
 
           <div style={{display:"flex", border:"1px solid var(--border)", borderRadius:"var(--radius)", overflow:"hidden", marginLeft:8}}>
-            <button className={"btn ghost icon"} style={{background: view==="list" ? "var(--surface-2)" : "transparent", borderRadius:0}} onClick={() => setView("list")}><Icon name="list" /></button>
-            <button className={"btn ghost icon"} style={{background: view==="grid" ? "var(--surface-2)" : "transparent", borderRadius:0, borderLeft:"1px solid var(--border)"}} onClick={() => setView("grid")}><Icon name="grid" /></button>
+            <button className={"btn ghost icon"} style={{background: view==="list" ? "var(--surface-2)" : "transparent", borderRadius:0}} onClick={() => setView("list")} aria-label={t("cases.library.listView")} title={t("cases.library.listView")}><Icon name="list" /></button>
+            <button className={"btn ghost icon"} style={{background: view==="grid" ? "var(--surface-2)" : "transparent", borderRadius:0, borderLeft:"1px solid var(--border)"}} onClick={() => setView("grid")} aria-label={t("cases.library.gridView")} title={t("cases.library.gridView")}><Icon name="grid" /></button>
           </div>
 
           {window.can && window.can(currentUser, "write") && (
-            <button className="btn accent sm" onClick={() => setShowNewTest(true)}><Icon name="plus" /> New test</button>
+            <button className="btn accent sm" onClick={() => setShowNewTest(true)}><Icon name="plus" /> {t("cases.library.newTest")}</button>
           )}
           <button
             className="btn sm"
@@ -362,17 +370,17 @@ function Library({ onNav, onOpenTest, currentUser }) {
             disabled={exportingCSV}
             style={{marginLeft: 6}}
           >
-            {exportingCSV ? "Exporting…" : "Export CSV"}
+            {exportingCSV ? t("cases.library.exporting") : t("cases.library.exportCsv")}
           </button>
         </div>
 
         {/* Bulk actions toolbar */}
         {selected.size > 0 && (
           <div style={{padding:"6px 22px", background:"var(--accent-soft)", borderBottom:"1px solid var(--border)", display:"flex", alignItems:"center", gap:10, fontSize:12, position:"relative"}}>
-            <b className="mono">{selected.size} selected</b>
+            <b className="mono">{t("cases.library.selected", { count: selected.size })}</b>
             {window.can && window.can(currentUser, "write") && (
               <div style={{position:"relative"}}>
-                <button className="btn sm" onClick={() => { setBulkFolderOpen(o => !o); setBulkStatusOpen(false); }}>Move to folder</button>
+                <button className="btn sm" onClick={() => { setBulkFolderOpen(o => !o); setBulkStatusOpen(false); }}>{t("cases.library.moveFolder")}</button>
                 {bulkFolderOpen && (
                   <>
                     <div aria-hidden="true" style={{position:"fixed", inset:0, zIndex:99}} onClick={() => setBulkFolderOpen(false)} />
@@ -388,7 +396,7 @@ function Library({ onNav, onOpenTest, currentUser }) {
 
             {window.can && window.can(currentUser, "write") && (
               <div style={{position:"relative"}}>
-                <button className="btn sm" onClick={() => { setBulkStatusOpen(o => !o); setBulkFolderOpen(false); }}>Set status</button>
+                <button className="btn sm" onClick={() => { setBulkStatusOpen(o => !o); setBulkFolderOpen(false); }}>{t("cases.library.setStatus")}</button>
                 {bulkStatusOpen && (
                   <>
                     <div aria-hidden="true" style={{position:"fixed", inset:0, zIndex:99}} onClick={() => setBulkStatusOpen(false)} />
@@ -405,28 +413,28 @@ function Library({ onNav, onOpenTest, currentUser }) {
             )}
 
             {window.can && window.can(currentUser, "delete") && (
-              <button className="btn sm" style={{color:"var(--fail)"}} onClick={() => setBulkDeleteConfirm(true)}>Delete</button>
+              <button className="btn sm" style={{color:"var(--fail)"}} onClick={() => setBulkDeleteConfirm(true)}>{t("cases.library.delete")}</button>
             )}
-            <button className="btn ghost sm" style={{marginLeft:"auto"}} onClick={() => setSelected(new Set())}>Clear</button>
+            <button className="btn ghost sm" style={{marginLeft:"auto"}} onClick={() => setSelected(new Set())}>{t("cases.library.clear")}</button>
           </div>
         )}
 
         {/* List */}
         <div style={{overflowY:"auto", flex:1}}>
           {view === "list" ? (
-            <table className="table">
+            <table className="table library-table">
               <thead>
                 <tr>
                   <th style={{width:28}}></th>
-                  <th style={{width:80}}>ID</th>
-                  <th>Title</th>
-                  <th style={{width:90}}>Type</th>
-                  <th style={{width:100}}>Status</th>
-                  <th style={{width:80}}>Priority</th>
-                  <th style={{width:100}}>Tags</th>
-                  <th style={{width:60}}>Owner</th>
-                  <th style={{width:80}}>Last run</th>
-                  <th style={{width:80}}>Duration</th>
+                  <th style={{width:80}}>{t("cases.library.id")}</th>
+                  <th>{t("cases.library.title")}</th>
+                  <th style={{width:90}}>{t("cases.library.type")}</th>
+                  <th style={{width:100}}>{t("cases.library.status")}</th>
+                  <th style={{width:80}}>{t("cases.library.priority")}</th>
+                  <th style={{width:100}}>{t("cases.library.tags")}</th>
+                  <th style={{width:60}}>{t("cases.library.owner")}</th>
+                  <th style={{width:80}}>{t("cases.library.lastRun")}</th>
+                  <th style={{width:80}}>{t("cases.library.duration")}</th>
                   <th style={{width:36}}></th>
                 </tr>
               </thead>
@@ -444,24 +452,24 @@ function Library({ onNav, onOpenTest, currentUser }) {
                     </td>
                     <td>
                       {t.auto
-                        ? <span className="tag" style={{color:"var(--info)", borderColor:"oklch(from var(--info) l c h / 0.3)"}}>auto · {t.runner}</span>
-                        : <span className="tag">manual</span>}
+                        ? <span className="tag" style={{color:"var(--info)", borderColor:"oklch(from var(--info) l c h / 0.3)"}}>{window.TH_I18N.t("cases.library.auto")} · {t.runner}</span>
+                        : <span className="tag">{window.TH_I18N.t("cases.detail.manual")}</span>}
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <StatusSelect s={t.status} testId={t.id} onChanged={refresh} />
                     </td>
-                    <td><span className={"tag priority-" + (t.priority === "high" ? "high" : t.priority === "med" ? "med" : "low")}>{t.priority}</span></td>
+                    <td><span className={"tag priority-" + (t.priority === "high" ? "high" : t.priority === "med" ? "med" : "low")}>{window.TH_I18N.t(t.priority === "high" ? "cases.library.highPriority" : t.priority === "med" ? "cases.library.mediumPriority" : "cases.library.lowPriority")}</span></td>
                     <td>
                       <div style={{display:"flex", gap:3, flexWrap:"wrap"}}>
                         {t.tags.slice(0,2).map(tg => <span key={tg} className="tag">{tg}</span>)}
                       </div>
                     </td>
                     <td className="mono dim">{t.owner}</td>
-                    <td className="mono dim">{t.lastRun}</td>
+                    <td className="mono dim">{formatLibraryDate(t.lastRun, lang)}</td>
                     <td className="mono dim">{t.duration}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       {window.can && window.can(currentUser, "delete") && (
-                        <button className="btn ghost icon sm" style={{opacity:0.5}} title="Delete test" onClick={(e) => handleDeleteRow(t, e)}>
+                        <button className="btn ghost icon sm" style={{opacity:0.5}} title={window.TH_I18N.t("cases.library.deleteTest")} onClick={(e) => handleDeleteRow(t, e)}>
                           <Icon name="x" />
                         </button>
                       )}
@@ -480,25 +488,25 @@ function Library({ onNav, onOpenTest, currentUser }) {
                       <StatusSelect s={t.status} testId={t.id} onChanged={refresh} />
                     </div>
                     {window.can && window.can(currentUser, "delete") && (
-                      <button className="btn ghost icon sm" style={{opacity:0.5}} onClick={(e) => handleDeleteRow(t, e)}>
+                      <button className="btn ghost icon sm" style={{opacity:0.5}} onClick={(e) => handleDeleteRow(t, e)} aria-label={window.TH_I18N.t("cases.library.deleteTest")} title={window.TH_I18N.t("cases.library.deleteTest")}>
                         <Icon name="x" />
                       </button>
                     )}
                   </div>
                   <div style={{fontSize:13, fontWeight:500, lineHeight:1.4, marginBottom:10}}>{t.title}</div>
                   <div style={{display:"flex", alignItems:"center", gap:6, fontSize:11}}>
-                    {t.auto ? <span className="tag" style={{color:"var(--info)"}}>auto</span> : <span className="tag">manual</span>}
-                    <span className={"tag priority-" + (t.priority === "high" ? "high" : t.priority === "med" ? "med" : "low")}>{t.priority}</span>
-                    <span className="dim mono" style={{marginLeft:"auto", fontSize:10.5}}>{t.lastRun}</span>
+                    {t.auto ? <span className="tag" style={{color:"var(--info)"}}>{window.TH_I18N.t("cases.library.auto")}</span> : <span className="tag">{window.TH_I18N.t("cases.detail.manual")}</span>}
+                    <span className={"tag priority-" + (t.priority === "high" ? "high" : t.priority === "med" ? "med" : "low")}>{window.TH_I18N.t(t.priority === "high" ? "cases.library.highPriority" : t.priority === "med" ? "cases.library.mediumPriority" : "cases.library.lowPriority")}</span>
+                    <span className="dim mono" style={{marginLeft:"auto", fontSize:10.5}}>{formatLibraryDate(t.lastRun, lang)}</span>
                   </div>
                 </div>
               ))}
             </div>
           )}
           {testsLoading && tests === null ? (
-            <div className="empty">Loading…</div>
+            <div className="empty">{t("cases.library.loading")}</div>
           ) : filtered.length === 0 ? (
-            <div className="empty">No tests match the current filters.</div>
+            <div className="empty">{t("cases.library.noMatch")}</div>
           ) : null}
         </div>
       </div>
@@ -530,8 +538,8 @@ function Library({ onNav, onOpenTest, currentUser }) {
       {/* Delete single confirm */}
       {deleteTarget && (
         <ConfirmDialog
-          title={`Delete ${deleteTarget.id}?`}
-          body={`"${deleteTarget.title}" will be permanently deleted.`}
+          title={t("cases.library.deletingOneTitle", { id: deleteTarget.id })}
+          body={t("cases.library.deletingOneBody", { title: deleteTarget.title })}
           onConfirm={confirmDelete}
           onCancel={() => setDeleteTarget(null)}
         />
@@ -540,8 +548,8 @@ function Library({ onNav, onOpenTest, currentUser }) {
       {/* Bulk delete confirm */}
       {bulkDeleteConfirm && (
         <ConfirmDialog
-          title={`Delete ${selected.size} test${selected.size > 1 ? "s" : ""}?`}
-          body="Selected tests will be permanently deleted."
+          title={t(selected.size === 1 ? "cases.library.deletingOneTestTitle" : "cases.library.deletingManyTestsTitle", { count: selected.size })}
+          body={t("cases.library.deletingManyBody")}
           onConfirm={handleBulkDelete}
           onCancel={() => setBulkDeleteConfirm(false)}
         />
@@ -551,6 +559,7 @@ function Library({ onNav, onOpenTest, currentUser }) {
 }
 
 function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
+  const { t } = useI18n();
   const [form, setForm] = useState({
     id: "", title: "", folder_id: defaultFolderId || "", type: "manual", priority: "med", owner: "", tags: ""
   });
@@ -563,7 +572,7 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const submit = async () => {
-    if (!form.id.trim() || !form.title.trim()) { setErr("ID and title are required."); return; }
+    if (!form.id.trim() || !form.title.trim()) { setErr(t("cases.library.idRequired")); return; }
     setSaving(true);
     setErr(null);
     try {
@@ -581,12 +590,12 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
       };
       const res = await fetch("/api/tests", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("th_token")}` },
+        headers: { ...window.authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.detail || "Create failed");
+        throw new Error(data.detail || t("cases.library.createFailed"));
       }
       onCreate();
       onClose();
@@ -600,43 +609,43 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
     <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...modal.overlayProps}>
       <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:480, maxHeight:"80vh", overflowY:"auto"}} {...modal.dialogProps}>
         <div style={{display:"flex", alignItems:"center", marginBottom:20}}>
-          <h2 id="new-test-title" style={{fontSize:15, fontWeight:600, margin:0}}>New test case</h2>
-          <button className="btn ghost icon sm" style={{marginLeft:"auto"}} onClick={onClose} aria-label="Close"><Icon name="x" /></button>
+          <h2 id="new-test-title" style={{fontSize:15, fontWeight:600, margin:0}}>{t("cases.library.suggestTitle")}</h2>
+          <button className="btn ghost icon sm" style={{marginLeft:"auto"}} onClick={onClose} aria-label={t("cases.library.close")}><Icon name="x" /></button>
         </div>
 
         <div style={{display:"flex", flexDirection:"column", gap:14}}>
-          <FormField label="ID *" hint="e.g. TC-2400">
+          <FormField label={t("cases.library.idRequiredLabel")} hint={t("cases.library.egId")}>
             <input className="input" value={form.id} onChange={e => setF("id", e.target.value)} placeholder="TC-2400" />
           </FormField>
-          <FormField label="Title *">
-            <input className="input" value={form.title} onChange={e => setF("title", e.target.value)} placeholder="Describe what this test verifies" />
+          <FormField label={t("cases.library.titleRequiredLabel")}>
+            <input className="input" value={form.title} onChange={e => setF("title", e.target.value)} placeholder={t("cases.library.titlePlaceholder")} />
           </FormField>
-          <FormField label="Folder">
+          <FormField label={t("cases.library.folder")}>
             <select className="input" value={form.folder_id} onChange={e => setF("folder_id", e.target.value)}>
-              <option value="">— none —</option>
+              <option value="">{t("cases.library.none")}</option>
               {folders.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           </FormField>
           <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
-            <FormField label="Type">
+            <FormField label={t("cases.library.type")}>
               <select className="input" value={form.type} onChange={e => setF("type", e.target.value)}>
-                <option value="manual">Manual</option>
-                <option value="automated">Automated</option>
+                <option value="manual">{t("cases.library.manual")}</option>
+                <option value="automated">{t("cases.library.automated")}</option>
               </select>
             </FormField>
-            <FormField label="Priority">
+            <FormField label={t("cases.library.priority")}>
               <select className="input" value={form.priority} onChange={e => setF("priority", e.target.value)}>
-                <option value="high">High</option>
-                <option value="med">Medium</option>
-                <option value="low">Low</option>
+                <option value="high">{t("cases.requirements.high")}</option>
+                <option value="med">{t("cases.requirements.medium")}</option>
+                <option value="low">{t("cases.requirements.low")}</option>
               </select>
             </FormField>
           </div>
-          <FormField label="Owner" hint="initials or username">
-            <input className="input" value={form.owner} onChange={e => setF("owner", e.target.value)} placeholder="e.g. QA" />
+          <FormField label={t("cases.library.owner")} hint={t("cases.library.ownerHint")}>
+            <input className="input" value={form.owner} onChange={e => setF("owner", e.target.value)} placeholder={t("cases.library.ownerPlaceholder")} />
           </FormField>
-          <FormField label="Tags" hint="comma-separated">
-            <input className="input" value={form.tags} onChange={e => setF("tags", e.target.value)} placeholder="smoke, payment, p0" />
+          <FormField label={t("cases.library.tags")} hint={t("cases.library.tagsHint")}>
+            <input className="input" value={form.tags} onChange={e => setF("tags", e.target.value)} placeholder={t("cases.library.tagsPlaceholder")} />
           </FormField>
           <CustomFieldsInputs defs={cfDefs} values={customFields} onChange={setCustomFields} />
         </div>
@@ -644,9 +653,9 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate }) {
         {err && <div style={{color:"var(--fail)", fontSize:12, marginTop:12}}>{err}</div>}
 
         <div style={{display:"flex", gap:8, marginTop:20, justifyContent:"flex-end"}}>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={onClose}>{t("cases.library.cancel")}</button>
           <button className="btn accent" onClick={submit} disabled={saving || !form.id.trim() || !form.title.trim()}>
-            {saving ? "Creating…" : "Create test"}
+            {saving ? t("cases.library.creating") : t("cases.library.createTest")}
           </button>
         </div>
       </div>
@@ -667,6 +676,7 @@ function FormField({ label, hint, children }) {
 }
 
 function ConfirmDialog({ title, body, onConfirm, onCancel }) {
+  const { t } = useI18n();
   const modal = useModal(onCancel);
   return (
     <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...modal.overlayProps}>
@@ -674,8 +684,8 @@ function ConfirmDialog({ title, body, onConfirm, onCancel }) {
         <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 10px"}}>{title}</h2>
         <p style={{fontSize:12.5, color:"var(--text-muted)", margin:"0 0 20px", lineHeight:1.5}}>{body}</p>
         <div style={{display:"flex", gap:8, justifyContent:"flex-end"}}>
-          <button className="btn" onClick={onCancel}>Cancel</button>
-          <button className="btn" style={{background:"var(--fail)", color:"white", border:"none"}} onClick={onConfirm}>Delete</button>
+          <button className="btn" onClick={onCancel}>{t("cases.library.cancel")}</button>
+          <button className="btn" style={{background:"var(--fail)", color:"white", border:"none"}} onClick={onConfirm}>{t("cases.library.delete")}</button>
         </div>
       </div>
     </div>

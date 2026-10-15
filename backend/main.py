@@ -4,7 +4,10 @@ import os
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -23,6 +26,7 @@ logging.basicConfig(
 from sqlalchemy import event as sa_event
 from .db import engine, get_db, _is_sqlite
 from . import models
+from .localization import language_from_header, translate, translate_validation_errors
 
 
 @sa_event.listens_for(engine, "connect")
@@ -218,6 +222,24 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ThoroTest API", lifespan=lifespan)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def localized_http_exception(request: Request, exc: StarletteHTTPException):
+    language = language_from_header(request.headers.get("accept-language"))
+    detail = translate(exc.detail, language) if isinstance(exc.detail, str) else exc.detail
+    return JSONResponse(
+        {"detail": detail}, status_code=exc.status_code, headers=exc.headers,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def localized_validation_exception(request: Request, exc: RequestValidationError):
+    language = language_from_header(request.headers.get("accept-language"))
+    return JSONResponse(
+        jsonable_encoder({"detail": translate_validation_errors(exc.errors(), language)}),
+        status_code=422,
+    )
 
 # CORS origins are configurable. Default to the public base URL (same-origin
 # deploys need no cross-origin access). Set ALLOWED_ORIGINS to a comma-separated

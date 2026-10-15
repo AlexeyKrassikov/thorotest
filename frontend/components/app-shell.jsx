@@ -17,8 +17,7 @@ function SidebarSearch({ onOpenTest }) {
     if (!query.trim()) { setResults([]); setOpen(false); return; }
     timerRef.current = setTimeout(async () => {
       try {
-        const token = localStorage.getItem("th_token");
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const headers = { ...window.authHeaders() };
         const res = await fetch(`/api/tests?search=${encodeURIComponent(query.trim())}`, { headers });
         if (!res.ok) return;
         const data = await res.json();
@@ -213,7 +212,7 @@ function Sidebar({ current, onNav, onOpenTest, density, currentUser, onLogout, o
         </div>
         <div style={{lineHeight:1.15, minWidth:0, flex:1}}>
           <div className="user-name">{currentUser ? (currentUser.display_name || currentUser.username) : "—"}</div>
-          <div className="user-org">{currentUser ? currentUser.role : ""}</div>
+          <div className="user-org">{currentUser ? t(`workspace.roles.${currentUser.role}`) : ""}</div>
         </div>
         {NotifBell && <NotifBell currentUser={currentUser} />}
         <button className="btn ghost icon" style={{marginLeft:"auto", flexShrink:0}} title={t("common.signOut")} onClick={onLogout}>
@@ -257,8 +256,8 @@ function Topbar({ crumbs, actions, theme, onToggleTheme, onToggleSidebar, sideba
         {actions}
         {onToggleTheme && (
           <button className="btn ghost icon sm" onClick={onToggleTheme}
-                  title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-                  aria-label="Toggle theme">
+                  title={theme === "dark" ? t("workspace.shell.lightTheme") : t("workspace.shell.darkTheme")}
+                  aria-label={t("workspace.shell.toggleTheme")}>
             <Icon name={theme === "dark" ? "sun" : "moon"} />
           </button>
         )}
@@ -272,9 +271,10 @@ function Topbar({ crumbs, actions, theme, onToggleTheme, onToggleSidebar, sideba
 // pointer-events:none — purely visual, never intercepts clicks; the band is
 // placed so it doesn't visually cover the topbar controls in the corner.
 function DemoRibbon() {
+  const { t } = useI18n();
   const [demo, setDemo] = useState(false);
   useEffect(() => {
-    fetch("/api/config")
+    fetch("/api/config", { headers: { ...window.authHeaders() } })
       .then(r => (r.ok ? r.json() : {}))
       .then(c => setDemo(!!c.demo_mode))
       .catch(() => {});
@@ -290,7 +290,7 @@ function DemoRibbon() {
         boxShadow:"0 2px 8px rgba(0,0,0,0.35)",
         fontFamily:"var(--font-mono, monospace)",
       }}>
-        Demo
+        {t("workspace.shell.demo")}
       </div>
     </div>
   );

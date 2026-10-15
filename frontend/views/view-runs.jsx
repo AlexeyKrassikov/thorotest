@@ -1,6 +1,7 @@
 // Runs & plans view, plus Run detail (live execution)
 
 function Runs({ onOpenRun, currentUser }) {
+  const { t } = useI18n();
   const { data: D, loading, error } = useInitialData();
   const [tab, setTab] = useState("active");
   const [showNewRun, setShowNewRun] = React.useState(false);
@@ -14,13 +15,13 @@ function Runs({ onOpenRun, currentUser }) {
 
   if (loading) return (
     <div style={{display:"flex", height:"100%", alignItems:"center", justifyContent:"center"}}>
-      <span className="mono dim">Loading…</span>
+      <span className="mono dim">{t("execution.runs.loading")}</span>
     </div>
   );
 
   if (!D) return (
     <div style={{display:"flex", height:"100%", alignItems:"center", justifyContent:"center"}}>
-      <span className="mono dim">Error loading data{error ? `: ${error}` : ""}.</span>
+      <span className="mono dim">{t("execution.runs.loadError", { error: error ? `: ${error}` : "" })}</span>
     </div>
   );
 
@@ -30,23 +31,23 @@ function Runs({ onOpenRun, currentUser }) {
     <div style={{display:"flex", flexDirection:"column", height:"100%"}}>
       <div className="page-h" style={{padding:"18px 22px 0", marginBottom:14}}>
         <div>
-          <h1 className="page-title">Runs & plans</h1>
-          <div className="page-sub">Execute test plans manually or trigger from CI — one timeline for both.</div>
+          <h1 className="page-title">{t("execution.runs.title")}</h1>
+          <div className="page-sub">{t("execution.runs.subtitle")}</div>
         </div>
         <div className="actions">
           {window.can && window.can(currentUser, "write") && (
-            <button className="btn" onClick={() => setShowNewPlan(true)}><Icon name="plus" /> New plan</button>
+            <button className="btn" onClick={() => setShowNewPlan(true)}><Icon name="plus" /> {t("execution.runs.newPlan")}</button>
           )}
           {window.can && window.can(currentUser, "write") && (
-            <button className="btn accent" onClick={() => setShowNewRun(true)}><Icon name="play" /> Start run</button>
+            <button className="btn accent" onClick={() => setShowNewRun(true)}><Icon name="play" /> {t("execution.runs.startRun")}</button>
           )}
         </div>
       </div>
 
       <div className="tabs" style={{paddingLeft:22}}>
-        <div className={"tab" + (tab === "active" ? " active" : "")} onClick={() => setTab("active")}>Active <span className="count">{activeCount}</span></div>
-        <div className={"tab" + (tab === "history" ? " active" : "")} onClick={() => setTab("history")}>History <span className="count">{D.runs.length}</span></div>
-        <div className={"tab" + (tab === "plans" ? " active" : "")} onClick={() => setTab("plans")}>Test plans <span className="count">{plans.length}</span></div>
+        <div className={"tab" + (tab === "active" ? " active" : "")} onClick={() => setTab("active")}>{t("execution.runs.active")} <span className="count">{activeCount}</span></div>
+        <div className={"tab" + (tab === "history" ? " active" : "")} onClick={() => setTab("history")}>{t("execution.runs.history")} <span className="count">{D.runs.length}</span></div>
+        <div className={"tab" + (tab === "plans" ? " active" : "") } onClick={() => setTab("plans")}>{t("execution.runs.testPlans")} <span className="count">{plans.length}</span></div>
       </div>
 
       <div style={{overflowY:"auto", flex:1, padding:"14px 22px 32px"}}>
@@ -73,6 +74,7 @@ function Runs({ onOpenRun, currentUser }) {
 }
 
 function RunsList({runs, onOpenRun, active}) {
+  const { t } = useI18n();
   const rows = active ? runs.filter(r => r.status === "running") : runs;
 
   return (
@@ -80,14 +82,14 @@ function RunsList({runs, onOpenRun, active}) {
       <table className="table">
         <thead>
           <tr>
-            <th style={{width:90}}>Run</th>
-            <th>Plan</th>
-            <th style={{width:220}}>Progress</th>
-            <th style={{width:120}}>Result</th>
-            <th style={{width:90}}>Env</th>
-            <th style={{width:140}}>Branch</th>
-            <th style={{width:80}}>Owner</th>
-            <th style={{width:90}}>Started</th>
+            <th style={{width:90}}>{t("execution.runs.run")}</th>
+            <th>{t("execution.runs.plan")}</th>
+            <th style={{width:220}}>{t("execution.runs.progress")}</th>
+            <th style={{width:120}}>{t("execution.runs.result")}</th>
+            <th style={{width:90}}>{t("execution.runs.env")}</th>
+            <th style={{width:140}}>{t("execution.runs.branch")}</th>
+            <th style={{width:80}}>{t("execution.runs.owner")}</th>
+            <th style={{width:90}}>{t("execution.runs.started")}</th>
           </tr>
         </thead>
         <tbody>
@@ -101,7 +103,7 @@ function RunsList({runs, onOpenRun, active}) {
               <td>
                 <ProgressBar run={r} />
                 <div className="mono dim" style={{fontSize:10.5, marginTop:3}}>
-                  {r.passed}/{r.total} · {r.failed} fail · {r.blocked} blocked
+                  {t("execution.runs.failCount", { passed: r.passed, total: r.total, failed: r.failed, blocked: r.blocked })}
                 </div>
               </td>
               <td><StatusBadge s={r.status} /></td>
@@ -118,6 +120,7 @@ function RunsList({runs, onOpenRun, active}) {
 }
 
 function PlansList({ plans, onReload, onOpenRun, currentUser, onNewPlan }) {
+  const { t } = useI18n();
   const [busy, setBusy] = React.useState(null);   // plan id currently running/deleting
   const canWrite = window.can && window.can(currentUser, "write");
 
@@ -133,7 +136,7 @@ function PlansList({ plans, onReload, onOpenRun, currentUser, onNewPlan }) {
   };
 
   const deletePlan = async (p) => {
-    if (!window.confirm(`Delete plan "${p.name}"?`)) return;
+    if (!window.confirm(t("execution.runs.deletePlanConfirm", { name: p.name }))) return;
     setBusy(p.id);
     try {
       await window.TH_API.deletePlan(p.id);
@@ -147,11 +150,11 @@ function PlansList({ plans, onReload, onOpenRun, currentUser, onNewPlan }) {
   if (!plans.length) {
     return (
       <div className="empty" style={{padding:"48px 18px", textAlign:"center"}}>
-        <div style={{fontSize:13, marginBottom:6}}>No test plans yet.</div>
+        <div style={{fontSize:13, marginBottom:6}}>{t("execution.runs.noPlans")}</div>
         <div className="mono dim" style={{fontSize:11, marginBottom:16}}>
-          A plan is a reusable set of tests you run on demand.
+          {t("execution.runs.reusablePlan")}
         </div>
-        {canWrite && <button className="btn accent" onClick={onNewPlan}><Icon name="plus" /> New plan</button>}
+        {canWrite && <button className="btn accent" onClick={onNewPlan}><Icon name="plus" /> {t("execution.runs.newPlan")}</button>}
       </div>
     );
   }
@@ -161,12 +164,12 @@ function PlansList({ plans, onReload, onOpenRun, currentUser, onNewPlan }) {
       <table className="table">
         <thead>
           <tr>
-            <th style={{width:110}}>ID</th>
-            <th>Name</th>
-            <th style={{width:70}}>Tests</th>
-            <th style={{width:100}}>Env</th>
-            <th style={{width:90}}>Owner</th>
-            <th>Schedule</th>
+            <th style={{width:110}}>{t("execution.runs.id")}</th>
+            <th>{t("execution.runs.name")}</th>
+            <th style={{width:70}}>{t("execution.runs.tests")}</th>
+            <th style={{width:100}}>{t("execution.runs.env")}</th>
+            <th style={{width:90}}>{t("execution.runs.owner")}</th>
+            <th>{t("execution.runs.schedule")}</th>
             <th style={{width:150}}></th>
           </tr>
         </thead>
@@ -178,7 +181,7 @@ function PlansList({ plans, onReload, onOpenRun, currentUser, onNewPlan }) {
               <td className="mono">{(p.test_ids || []).length}</td>
               <td>{p.env ? <span className="tag">{p.env}</span> : <span className="mono dim">—</span>}</td>
               <td className="mono dim">{p.owner || "—"}</td>
-              <td className="mono dim">{p.schedule || "Manual"}</td>
+              <td className="mono dim">{p.schedule || t("execution.runs.manual")}</td>
               <td style={{textAlign:"right", whiteSpace:"nowrap"}}>
                 {canWrite && (
                   <>
@@ -187,14 +190,14 @@ function PlansList({ plans, onReload, onOpenRun, currentUser, onNewPlan }) {
                       disabled={busy === p.id || !(p.test_ids || []).length}
                       onClick={() => runPlan(p)}
                     >
-                      <Icon name="play" /> {busy === p.id ? "…" : "Run"}
+                      <Icon name="play" /> {busy === p.id ? "…" : t("execution.runs.runAction")}
                     </button>
                     <button
                       className="btn sm ghost icon"
                       style={{marginLeft:6}}
                       disabled={busy === p.id}
                       onClick={() => deletePlan(p)}
-                      title="Delete plan"
+                      title={t("execution.runs.deletePlan")}
                     >
                       <Icon name="x" />
                     </button>
@@ -210,6 +213,7 @@ function PlansList({ plans, onReload, onOpenRun, currentUser, onNewPlan }) {
 }
 
 function RunDetail({ runId, onBack, currentUser }) {
+  const { t } = useI18n();
   const [liveRun, setLiveRun] = React.useState(null);
   const [cases, setCases] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -234,7 +238,7 @@ function RunDetail({ runId, onBack, currentUser }) {
   // Load users list for assignment dropdown
   React.useEffect(() => {
     if (!window.can || !window.can(currentUser, "manage")) return;
-    fetch("/api/users", { headers: { Authorization: `Bearer ${localStorage.getItem("th_token")}` } })
+    fetch("/api/users", { headers: window.authHeaders() })
       .then(r => r.json())
       .then(setUsers)
       .catch(() => {});
@@ -388,7 +392,7 @@ function RunDetail({ runId, onBack, currentUser }) {
   };
 
   const handleAbort = async () => {
-    if (!confirm("Abort this run?")) return;
+    if (!confirm(t("execution.runs.abortConfirm"))) return;
     try {
       await window.TH_API.updateRunStatus(liveRun.id, "aborted");
       setLiveRun(prev => ({ ...prev, status: "aborted" }));
@@ -453,13 +457,13 @@ function RunDetail({ runId, onBack, currentUser }) {
 
   if (loading) return (
     <div style={{display:"flex", height:"100%", alignItems:"center", justifyContent:"center"}}>
-      <span className="mono dim">Loading run…</span>
+      <span className="mono dim">{t("execution.runs.loadingRun")}</span>
     </div>
   );
 
   if (!liveRun) return (
     <div style={{display:"flex", height:"100%", alignItems:"center", justifyContent:"center"}}>
-      <span className="mono dim">Run not found.</span>
+      <span className="mono dim">{t("execution.runs.runNotFound")}</span>
     </div>
   );
 
@@ -474,14 +478,14 @@ function RunDetail({ runId, onBack, currentUser }) {
       <div style={{borderRight:"1px solid var(--border)", background:"var(--bg-2)", display:"flex", flexDirection:"column", overflow:"hidden"}}>
         <div style={{padding:"14px 14px 10px", borderBottom:"1px solid var(--border)"}}>
           <div style={{display:"flex", alignItems:"center", gap:8, fontSize:11.5, color:"var(--text-dim)", marginBottom:6}}>
-            <button className="btn ghost sm" onClick={onBack} style={{padding:"2px 6px"}}>← Runs</button>
+            <button className="btn ghost sm" onClick={onBack} style={{padding:"2px 6px"}}>{t("execution.runs.backRuns")}</button>
             <span className="mono">{run.id}</span>
             <StatusBadge s={run.status} />
           </div>
           <div style={{fontSize:14, fontWeight:600, lineHeight:1.3}}>{run.name}</div>
           {run.source_run_id && (
             <div style={{fontSize:11, color:"var(--text-dim)", marginTop:2}}>
-              Retest of: <a href={`#/runs/${run.source_run_id}`}
+              {t("execution.runs.retestOf")} <a href={`#/runs/${run.source_run_id}`}
                 style={{color:"var(--accent)", textDecoration:"none"}}
                 onClick={e => { e.preventDefault(); e.stopPropagation(); window.location.hash = `#/runs/${run.source_run_id}`; }}>
                 {run.source_run_id}
@@ -502,7 +506,7 @@ function RunDetail({ runId, onBack, currentUser }) {
               onClick={handleRetest}
               disabled={retesting}
             >
-              {retesting ? "Creating retest…" : `Retest failed (${failCount})`}
+              {retesting ? t("execution.runs.creatingRetest") : t("execution.runs.retestFailed", { count: failCount })}
             </button>
           )}
           <div style={{position:"relative", marginTop:6}}>
@@ -512,7 +516,7 @@ function RunDetail({ runId, onBack, currentUser }) {
               disabled={exporting}
               style={{width:"100%"}}
             >
-              {exporting ? "Exporting…" : "Export ▾"}
+              {exporting ? t("execution.runs.exporting") : t("execution.runs.export")}
             </button>
             {exportOpen && (
               <>
@@ -542,7 +546,7 @@ function RunDetail({ runId, onBack, currentUser }) {
         </div>
         <div style={{overflowY:"auto", flex:1, padding:"6px 0"}}>
           {cases.length === 0 && (
-            <div className="empty" style={{padding:"20px 14px", fontSize:12}}>No cases in this run.</div>
+            <div className="empty" style={{padding:"20px 14px", fontSize:12}}>{t("execution.runs.noCases")}</div>
           )}
           {cases.map((c, i) => (
             <div
@@ -598,7 +602,7 @@ function RunDetail({ runId, onBack, currentUser }) {
                   }}
                   onClick={e => e.stopPropagation()}
                 >
-                  <option value="">Unassigned</option>
+                  <option value="">{t("execution.runs.unassigned")}</option>
                   {users.map(u => (
                     <option key={u.id} value={u.username}>{u.display_name || u.username}</option>
                   ))}
@@ -609,8 +613,8 @@ function RunDetail({ runId, onBack, currentUser }) {
         </div>
         {window.can && window.can(currentUser, "write") && (
           <div style={{padding:"10px 14px", borderTop:"1px solid var(--border)", display:"flex", gap:6}}>
-            <button className="btn sm" style={{flex:1}} onClick={handlePause} disabled={run.status !== "running"}>Pause</button>
-            <button className="btn sm" style={{flex:1, color:"var(--fail)"}} onClick={handleAbort} disabled={run.status === "aborted"}>Abort</button>
+            <button className="btn sm" style={{flex:1}} onClick={handlePause} disabled={run.status !== "running"}>{t("execution.runs.pause")}</button>
+            <button className="btn sm" style={{flex:1, color:"var(--fail)"}} onClick={handleAbort} disabled={run.status === "aborted"}>{t("execution.runs.abort")}</button>
           </div>
         )}
       </div>
@@ -621,13 +625,13 @@ function RunDetail({ runId, onBack, currentUser }) {
           <>
             <div style={{padding:"18px 22px 12px", borderBottom:"1px solid var(--border)"}}>
               <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:6}}>
-                <span className="mono dim" style={{fontSize:11}}>Case {activeIdx + 1} of {cases.length}</span>
+                <span className="mono dim" style={{fontSize:11}}>{t("execution.runs.caseOf", { current: activeIdx + 1, total: cases.length })}</span>
                 <StatusBadge s={current.status} />
                 <div className="spacer" />
                 {window.can && window.can(currentUser, "write") && (
                   <>
-                    <button className="btn sm" disabled={marking} onClick={() => markCase("skip")}>Skip</button>
-                    <button className="btn sm" style={{color:"var(--warn)"}} disabled={marking} onClick={() => markCase("blocked")}>Block</button>
+                    <button className="btn sm" disabled={marking} onClick={() => markCase("skip")}>{t("execution.runs.skip")}</button>
+                    <button className="btn sm" style={{color:"var(--warn)"}} disabled={marking} onClick={() => markCase("blocked")}>{t("execution.runs.block")}</button>
                   </>
                 )}
               </div>
@@ -640,17 +644,17 @@ function RunDetail({ runId, onBack, currentUser }) {
             <div style={{flex:1, overflowY:"auto"}}>
               <div className="card" style={{margin:"14px 22px", borderRadius:"var(--radius-lg)"}}>
                 <div className="card-h">
-                  <div className="card-title">Steps</div>
+                  <div className="card-title">{t("execution.runs.steps")}</div>
                   <div className="spacer" />
                   {testSteps.length > 0 && (
                     <div className="mono dim" style={{fontSize:11}}>
-                      {stepResults.filter(sr => sr.status !== "pending").length} / {testSteps.length} done
+                      {t("execution.runs.done", { done: stepResults.filter(sr => sr.status !== "pending").length, total: testSteps.length })}
                     </div>
                   )}
                 </div>
                 {testSteps.length === 0 ? (
                   <div className="mono dim" style={{padding:"14px", fontSize:12}}>
-                    No steps defined for this test case.
+                    {t("execution.runs.noSteps")}
                   </div>
                 ) : (
                   <div>
@@ -672,7 +676,7 @@ function RunDetail({ runId, onBack, currentUser }) {
                             )}
                             {sr && sr.actual_result && (
                               <div style={{fontSize:11, color:"var(--text-muted)", marginTop:4}}>
-                                Actual: {sr.actual_result}
+                                {t("execution.runs.actual")} {sr.actual_result}
                               </div>
                             )}
                           </div>
@@ -684,21 +688,19 @@ function RunDetail({ runId, onBack, currentUser }) {
                                   style={{color:"var(--pass)", fontSize:11}}
                                   disabled={markingStep}
                                   onClick={() => markStep(sr || { test_step_id: ts.id, actual_result: null }, "pass")}
-                                  title="Pass (P)"
+                                  title={t("execution.runs.passStepTitle")}
                                 >P</button>
                                 <button
                                   className="btn ghost sm"
                                   style={{color:"var(--fail)", fontSize:11}}
                                   disabled={markingStep}
                                   onClick={() => markStep(sr || { test_step_id: ts.id, actual_result: null }, "fail")}
-                                  title="Fail (F)"
+                                  title={t("execution.runs.failStepTitle")}
                                 >F</button>
                               </>
                             )}
                             {!isPending && (
-                              <span className={"status " + (isPass ? "pass" : "fail")} style={{fontSize:10}}>
-                                {status.toUpperCase()}
-                              </span>
+                              <StatusBadge s={status} />
                             )}
                           </div>
                         </div>
@@ -711,8 +713,8 @@ function RunDetail({ runId, onBack, currentUser }) {
               <div style={{padding:"0 22px 22px"}}>
                 <div className="card">
                   <div className="card-h">
-                    <div className="card-title">Evidence</div>
-                    <div className="card-sub">attach screenshots, logs, recordings</div>
+                    <div className="card-title">{t("execution.runs.evidence")}</div>
+                    <div className="card-sub">{t("execution.runs.evidenceSubtitle")}</div>
                   </div>
                   <div style={{padding:14}}>
                     <FileDropZone
@@ -738,17 +740,17 @@ function RunDetail({ runId, onBack, currentUser }) {
 
             {window.can && window.can(currentUser, "write") && (
               <div style={{padding:"12px 22px", borderTop:"1px solid var(--border)", display:"flex", gap:8, background:"var(--bg-2)"}}>
-                <textarea className="textarea" placeholder="Note for this case (optional)..." value={caseNote} onChange={e => setCaseNote(e.target.value)} style={{flex:1, minHeight:38, padding:"8px 10px"}}></textarea>
+                <textarea className="textarea" placeholder={t("execution.runs.caseNote")} value={caseNote} onChange={e => setCaseNote(e.target.value)} style={{flex:1, minHeight:38, padding:"8px 10px"}}></textarea>
                 <div style={{display:"flex", flexDirection:"column", gap:6}}>
-                  <button className="btn sm" style={{background:"var(--fail-soft)", color:"var(--fail)", borderColor:"oklch(from var(--fail) l c h / 0.3)"}} disabled={marking} onClick={() => markCase("fail")}>Mark fail <span className="kbd">F</span></button>
-                  <button className="btn sm" style={{background:"var(--pass-soft)", color:"var(--pass)", borderColor:"oklch(from var(--pass) l c h / 0.3)"}} disabled={marking} onClick={() => markCase("pass")}>Mark pass <span className="kbd">P</span></button>
+                  <button className="btn sm" style={{background:"var(--fail-soft)", color:"var(--fail)", borderColor:"oklch(from var(--fail) l c h / 0.3)"}} disabled={marking} onClick={() => markCase("fail")}>{t("execution.runs.markFail")} <span className="kbd">F</span></button>
+                  <button className="btn sm" style={{background:"var(--pass-soft)", color:"var(--pass)", borderColor:"oklch(from var(--pass) l c h / 0.3)"}} disabled={marking} onClick={() => markCase("pass")}>{t("execution.runs.markPass")} <span className="kbd">P</span></button>
                 </div>
               </div>
             )}
           </>
         ) : (
           <div style={{display:"flex", height:"100%", alignItems:"center", justifyContent:"center"}}>
-            <span className="mono dim">Select a case from the queue.</span>
+            <span className="mono dim">{t("execution.runs.selectCase")}</span>
           </div>
         )}
       </div>
@@ -756,25 +758,25 @@ function RunDetail({ runId, onBack, currentUser }) {
       {/* Right — context */}
       <div style={{borderLeft:"1px solid var(--border)", background:"var(--bg-2)", overflowY:"auto"}}>
         <div style={{padding:14, borderBottom:"1px solid var(--border)"}}>
-          <div className="card-title" style={{marginBottom:8}}>Environment</div>
+          <div className="card-title" style={{marginBottom:8}}>{t("execution.runs.environment")}</div>
           <div style={{display:"flex", flexDirection:"column", gap:6, fontSize:11.5}}>
-            <Detail label="Env" value={run.env ? <span className="tag">{run.env}</span> : <span className="mono dim">—</span>} />
-            <Detail label="Branch" value={<span className="mono">{run.branch || "—"}</span>} />
-            <Detail label="Owner" value={<span className="mono">{run.owner || "—"}</span>} />
+            <Detail label={t("execution.runs.envLabel")} value={run.env ? <span className="tag">{run.env}</span> : <span className="mono dim">—</span>} />
+            <Detail label={t("execution.runs.branch")} value={<span className="mono">{run.branch || "—"}</span>} />
+            <Detail label={t("execution.runs.owner")} value={<span className="mono">{run.owner || "—"}</span>} />
           </div>
         </div>
 
         <div style={{padding:14, borderBottom:"1px solid var(--border)"}}>
           <div style={{display:"flex", alignItems:"center", marginBottom:8}}>
-            <div className="card-title">Linked defects</div>
+            <div className="card-title">{t("execution.runs.linkedDefects")}</div>
             {runDefects.length > 0 && <span className="count" style={{marginLeft:6}}>{runDefects.length}</span>}
             <div className="spacer" />
             {window.can && window.can(currentUser, "write") && (
-              <button className="btn ghost sm" style={{fontSize:10.5}} onClick={() => setShowFileDefect(true)}><Icon name="plus" /></button>
+              <button className="btn ghost sm" style={{fontSize:10.5}} onClick={() => setShowFileDefect(true)} title={t("execution.runs.fileDefect")} aria-label={t("execution.runs.fileDefect")}><Icon name="plus" /></button>
             )}
           </div>
           {runDefects.length === 0 ? (
-            <div className="empty" style={{padding:"8px 0", textAlign:"left", fontSize:11.5}}>No defects filed for this run.</div>
+            <div className="empty" style={{padding:"8px 0", textAlign:"left", fontSize:11.5}}>{t("execution.runs.noRunDefects")}</div>
           ) : (
             <div style={{display:"flex", flexDirection:"column", gap:4}}>
               {runDefects.map(d => {
@@ -784,7 +786,7 @@ function RunDetail({ runId, onBack, currentUser }) {
                   <div key={d.id} style={{display:"flex", alignItems:"center", gap:6, fontSize:11.5}}>
                     <span className="mono" style={{color, minWidth:72}}>{d.id}</span>
                     <span style={{flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{d.title}</span>
-                    <span className={"tag " + sevClass} style={{fontSize:10}}>{d.severity}</span>
+                    <span className={"tag " + sevClass} style={{fontSize:10}}>{({ critical: "critical", high: "high", med: "med", low: "low" })[d.severity] ? t(`execution.defects.severityValue${({ critical: "Critical", high: "High", med: "Med", low: "Low" })[d.severity]}`) : d.severity}</span>
                   </div>
                 );
               })}
@@ -801,9 +803,9 @@ function RunDetail({ runId, onBack, currentUser }) {
         )}
 
         <div style={{padding:14}}>
-          <div className="card-title" style={{marginBottom:8}}>Run timeline</div>
+          <div className="card-title" style={{marginBottom:8}}>{t("execution.runs.timeline")}</div>
           <div style={{display:"flex", flexDirection:"column", gap:6, fontSize:11.5}}>
-            <TimelineItem time="" text={`Case ${current?.test_id || "—"} started`} />
+            <TimelineItem time="" text={t("execution.runs.caseStarted", { id: current?.test_id || "—" })} />
           </div>
         </div>
       </div>
@@ -812,22 +814,24 @@ function RunDetail({ runId, onBack, currentUser }) {
 }
 
 function StepRunner({num, text, active, pass, fail}) {
+  const { t } = useI18n();
   return (
     <div className={"step" + (active ? " active" : pass ? " pass" : fail ? " fail" : "")}>
       <div className="step-num">{pass ? "✓" : fail ? "✕" : num}</div>
       <div className="step-text">{text}</div>
       <div className="step-actions">
-        {active && <span className="status info">RUNNING</span>}
+        {active && <span className="status info">{t("execution.overview.statusRunning")}</span>}
       </div>
     </div>
   );
 }
 
 function Evidence({label, sub}) {
+  const { t } = useI18n();
   return (
     <div style={{border:"1px solid var(--border)", borderRadius:"var(--radius)", overflow:"hidden", background:"var(--bg-2)"}}>
       <div style={{height:80, background:"repeating-linear-gradient(45deg, var(--surface-2) 0 8px, var(--surface-3) 8px 16px)", display:"grid", placeItems:"center"}}>
-        <span className="mono dim" style={{fontSize:10}}>screenshot</span>
+        <span className="mono dim" style={{fontSize:10}}>{t("execution.runs.screenshot")}</span>
       </div>
       <div style={{padding:"6px 8px"}}>
         <div className="mono" style={{fontSize:11}}>{label}</div>
@@ -847,12 +851,13 @@ function TimelineItem({time, text, warn}) {
 }
 
 function NewPlanModal({ onClose, onCreated }) {
+  const { t } = useI18n();
   const [tests, setTests] = React.useState([]);
   const [search, setSearch] = React.useState("");
   const [selected, setSelected] = React.useState(new Set());
   const [name, setName] = React.useState("");
   const [env, setEnv] = React.useState("staging");
-  const [schedule, setSchedule] = React.useState("Manual");
+  const [schedule, setSchedule] = React.useState(null);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState(null);
 
@@ -885,14 +890,14 @@ function NewPlanModal({ onClose, onCreated }) {
   };
 
   const handleSave = async () => {
-    if (!name.trim()) { setError("Plan name is required."); return; }
+    if (!name.trim()) { setError(t("execution.runs.planNameRequired")); return; }
     setSaving(true);
     setError(null);
     try {
       await window.TH_API.createPlan({
         name: name.trim(),
         env,
-        schedule: schedule.trim() || "Manual",
+        schedule: (schedule ?? "Manual").trim() || "Manual",
         test_ids: [...selected],
       });
       onCreated();
@@ -916,39 +921,39 @@ function NewPlanModal({ onClose, onCreated }) {
       <div style={panelStyle} onClick={e => e.stopPropagation()}>
         <div style={{display:"flex", alignItems:"center", padding:"16px 18px 14px", borderBottom:"1px solid var(--border)"}}>
           <div>
-            <div style={{fontSize:14, fontWeight:600}}>New test plan</div>
-            <div style={{fontSize:11, color:"var(--text-dim)", marginTop:2}}>{selected.size} test{selected.size !== 1 ? "s" : ""} selected</div>
+            <div style={{fontSize:14, fontWeight:600}}>{t("execution.runs.newTestPlan")}</div>
+            <div style={{fontSize:11, color:"var(--text-dim)", marginTop:2}}>{t(selected.size === 1 ? "execution.runs.selectedTestsOne" : "execution.runs.selectedTests", { count: selected.size })}</div>
           </div>
-          <button className="btn ghost icon sm" style={{marginLeft:"auto"}} onClick={onClose}><Icon name="x" /></button>
+          <button className="btn ghost icon sm" style={{marginLeft:"auto"}} onClick={onClose} aria-label={t("execution.overview.close")}><Icon name="x" /></button>
         </div>
 
         <div style={{padding:"14px 18px", display:"flex", flexDirection:"column", gap:12, borderBottom:"1px solid var(--border)"}}>
           <div>
-            <div style={{fontSize:11, fontWeight:500, color:"var(--text-dim)", marginBottom:5}}>Plan name *</div>
+            <div style={{fontSize:11, fontWeight:500, color:"var(--text-dim)", marginBottom:5}}>{t("execution.runs.planName")}</div>
             <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={name}
-              onChange={e => setName(e.target.value)} placeholder="e.g. Release regression — full" autoFocus />
+              onChange={e => setName(e.target.value)} placeholder={t("execution.runs.planNamePlaceholder")} autoFocus />
           </div>
           <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
             <div>
-              <div style={{fontSize:11, fontWeight:500, color:"var(--text-dim)", marginBottom:5}}>Environment</div>
+              <div style={{fontSize:11, fontWeight:500, color:"var(--text-dim)", marginBottom:5}}>{t("execution.runs.environmentLabel")}</div>
               <select className="input" value={env} onChange={e => setEnv(e.target.value)} style={{width:"100%"}}>
-                <option value="staging">staging</option>
-                <option value="preview">preview</option>
-                <option value="local">local</option>
-                <option value="production">production</option>
+                <option value="staging">{t("execution.runs.environmentStaging")}</option>
+                <option value="preview">{t("execution.runs.environmentPreview")}</option>
+                <option value="local">{t("execution.runs.environmentLocal")}</option>
+                <option value="production">{t("execution.runs.environmentProduction")}</option>
               </select>
             </div>
             <div>
-              <div style={{fontSize:11, fontWeight:500, color:"var(--text-dim)", marginBottom:5}}>Schedule (label)</div>
-              <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={schedule}
-                onChange={e => setSchedule(e.target.value)} placeholder="Manual / 0 2 * * * / on PR" />
+              <div style={{fontSize:11, fontWeight:500, color:"var(--text-dim)", marginBottom:5}}>{t("execution.runs.scheduleLabel")}</div>
+              <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={schedule ?? t("execution.runs.manual")}
+              onChange={e => setSchedule(e.target.value)} placeholder={t("execution.runs.schedulePlaceholder")} />
             </div>
           </div>
         </div>
 
         <div style={{padding:"10px 14px", borderBottom:"1px solid var(--border)"}}>
           <input className="input" style={{width:"100%", boxSizing:"border-box"}}
-            placeholder="Search tests by title or ID…" value={search} onChange={e => setSearch(e.target.value)} />
+            placeholder={t("execution.runs.searchTests")} value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         {filtered.length > 0 && (
           <label style={{display:"grid", gridTemplateColumns:"20px 1fr", gap:10, alignItems:"center",
@@ -957,11 +962,11 @@ function NewPlanModal({ onClose, onCreated }) {
             <input type="checkbox" checked={allSelected}
               ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
               onChange={toggleAll} />
-            <span>{allSelected ? "Deselect all" : "Select all"}{search ? " matching" : ""} ({filtered.length})</span>
+            <span>{t(allSelected ? "execution.runs.deselectAll" : "execution.runs.selectAll")}{search ? t("execution.runs.matching") : ""} ({filtered.length})</span>
           </label>
         )}
         <div style={{overflowY:"auto", flex:1}}>
-          {filtered.length === 0 && <div className="empty" style={{padding:"24px 18px", fontSize:12}}>No tests match.</div>}
+          {filtered.length === 0 && <div className="empty" style={{padding:"24px 18px", fontSize:12}}>{t("execution.runs.noMatchingTests")}</div>}
           {filtered.map(t => (
             <label key={t.id} style={{
               display:"grid", gridTemplateColumns:"20px 1fr auto", gap:10, alignItems:"center",
@@ -979,11 +984,11 @@ function NewPlanModal({ onClose, onCreated }) {
         </div>
 
         <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 18px", borderTop:"1px solid var(--border)"}}>
-          {error ? <span className="mono" style={{fontSize:11, color:"var(--danger)"}}>{error}</span> : <span className="mono dim" style={{fontSize:11}}>{selected.size} selected</span>}
+          {error ? <span className="mono" style={{fontSize:11, color:"var(--danger)"}}>{error}</span> : <span className="mono dim" style={{fontSize:11}}>{t("execution.runs.selectedCount", { count: selected.size })}</span>}
           <div style={{display:"flex", alignItems:"center", gap:10}}>
-            <button className="btn ghost" onClick={onClose}>Cancel</button>
+            <button className="btn ghost" onClick={onClose}>{t("execution.runs.cancel")}</button>
             <button className="btn accent" onClick={handleSave} disabled={saving || !name.trim()}>
-              {saving ? "Saving…" : "Create plan"}
+              {saving ? t("execution.runs.saving") : t("execution.runs.createPlan")}
             </button>
           </div>
         </div>
@@ -993,6 +998,7 @@ function NewPlanModal({ onClose, onCreated }) {
 }
 
 function NewRunModal({ onClose, onCreated }) {
+  const { t } = useI18n();
   const [step, setStep] = React.useState(1);
   const [tests, setTests] = React.useState([]);
   const [search, setSearch] = React.useState("");
@@ -1032,7 +1038,7 @@ function NewRunModal({ onClose, onCreated }) {
   };
 
   const handleCreate = async () => {
-    if (!name.trim()) { setError("Run name is required."); return; }
+    if (!name.trim()) { setError(t("execution.runs.runNameRequired")); return; }
     setCreating(true);
     setError(null);
     const runId = "R-" + Math.floor(1000 + Math.random() * 9000);
@@ -1068,12 +1074,12 @@ function NewRunModal({ onClose, onCreated }) {
         {/* Header */}
         <div style={{display:"flex", alignItems:"center", padding:"16px 18px 14px", borderBottom:"1px solid var(--border)"}}>
           <div>
-            <div style={{fontSize:14, fontWeight:600}}>{step === 1 ? "Select tests" : "Configure run"}</div>
+            <div style={{fontSize:14, fontWeight:600}}>{step === 1 ? t("execution.runs.selectTests") : t("execution.runs.configureRun")}</div>
             <div style={{fontSize:11, color:"var(--text-dim)", marginTop:2}}>
-              {step === 1 ? `${selected.size} selected` : `${selected.size} test${selected.size !== 1 ? "s" : ""} will run`}
+              {step === 1 ? t("execution.runs.selectedCount", { count: selected.size }) : t(selected.size === 1 ? "execution.runs.willRunTest" : "execution.runs.willRunTests", { count: selected.size })}
             </div>
           </div>
-          <button className="btn ghost icon sm" style={{marginLeft:"auto"}} onClick={onClose}><Icon name="x" /></button>
+          <button className="btn ghost icon sm" style={{marginLeft:"auto"}} onClick={onClose} aria-label={t("execution.overview.close")}><Icon name="x" /></button>
         </div>
 
         {step === 1 ? (
@@ -1082,7 +1088,7 @@ function NewRunModal({ onClose, onCreated }) {
               <input
                 className="input"
                 style={{width:"100%", boxSizing:"border-box"}}
-                placeholder="Search by title or ID…"
+                placeholder={t("execution.runs.searchByTitle")}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 autoFocus
@@ -1095,12 +1101,12 @@ function NewRunModal({ onClose, onCreated }) {
                 <input type="checkbox" checked={allSelected}
                   ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
                   onChange={toggleAll} />
-                <span>{allSelected ? "Deselect all" : "Select all"}{search ? " matching" : ""} ({filtered.length})</span>
+                <span>{t(allSelected ? "execution.runs.deselectAll" : "execution.runs.selectAll")}{search ? t("execution.runs.matching") : ""} ({filtered.length})</span>
               </label>
             )}
             <div style={{overflowY:"auto", flex:1}}>
               {filtered.length === 0 && (
-                <div className="empty" style={{padding:"24px 18px", fontSize:12}}>No tests match.</div>
+                <div className="empty" style={{padding:"24px 18px", fontSize:12}}>{t("execution.runs.noMatchingTests")}</div>
               )}
               {filtered.map(t => (
                 <label
@@ -1122,11 +1128,11 @@ function NewRunModal({ onClose, onCreated }) {
               ))}
             </div>
             <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 18px", borderTop:"1px solid var(--border)"}}>
-              <button className="btn ghost" onClick={onClose}>Cancel</button>
+              <button className="btn ghost" onClick={onClose}>{t("execution.runs.cancel")}</button>
               <div style={{display:"flex", alignItems:"center", gap:10}}>
-                <span className="mono dim" style={{fontSize:11}}>{selected.size} selected</span>
+                <span className="mono dim" style={{fontSize:11}}>{t("execution.runs.selectedCount", { count: selected.size })}</span>
                 <button className="btn accent" onClick={() => setStep(2)} disabled={selected.size === 0}>
-                  Configure →
+                  {t("execution.runs.configure")}
                 </button>
               </div>
             </div>
@@ -1135,28 +1141,28 @@ function NewRunModal({ onClose, onCreated }) {
           <>
             <div style={{padding:"18px", display:"flex", flexDirection:"column", gap:14, overflowY:"auto", flex:1}}>
               <div>
-                <div style={{fontSize:11, fontWeight:500, color:"var(--text-dim)", marginBottom:5}}>Run name *</div>
+                <div style={{fontSize:11, fontWeight:500, color:"var(--text-dim)", marginBottom:5}}>{t("execution.runs.runName")}</div>
                 <input
                   className="input"
                   style={{width:"100%", boxSizing:"border-box"}}
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  placeholder="e.g. Release regression · v2.4"
+                  placeholder={t("execution.runs.runNamePlaceholder")}
                   autoFocus
                 />
               </div>
               <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12}}>
                 <div>
-                  <div style={{fontSize:11, fontWeight:500, color:"var(--text-dim)", marginBottom:5}}>Environment</div>
+                  <div style={{fontSize:11, fontWeight:500, color:"var(--text-dim)", marginBottom:5}}>{t("execution.runs.environmentLabel")}</div>
                   <select className="input" value={env} onChange={e => setEnv(e.target.value)} style={{width:"100%"}}>
-                    <option value="staging">staging</option>
-                    <option value="preview">preview</option>
-                    <option value="local">local</option>
-                    <option value="production">production</option>
+                    <option value="staging">{t("execution.runs.environmentStaging")}</option>
+                    <option value="preview">{t("execution.runs.environmentPreview")}</option>
+                    <option value="local">{t("execution.runs.environmentLocal")}</option>
+                    <option value="production">{t("execution.runs.environmentProduction")}</option>
                   </select>
                 </div>
                 <div>
-                  <div style={{fontSize:11, fontWeight:500, color:"var(--text-dim)", marginBottom:5}}>Branch</div>
+                  <div style={{fontSize:11, fontWeight:500, color:"var(--text-dim)", marginBottom:5}}>{t("execution.runs.branchLabel")}</div>
                   <input
                     className="input"
                     style={{width:"100%", boxSizing:"border-box"}}
@@ -1169,9 +1175,9 @@ function NewRunModal({ onClose, onCreated }) {
               {error && <div style={{color:"var(--fail)", fontSize:12}}>{error}</div>}
             </div>
             <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 18px", borderTop:"1px solid var(--border)"}}>
-              <button className="btn ghost" onClick={() => setStep(1)}>← Back</button>
+              <button className="btn ghost" onClick={() => setStep(1)}>{t("execution.runs.back")}</button>
               <button className="btn accent" onClick={handleCreate} disabled={creating || !name.trim()}>
-                {creating ? "Creating…" : "Create & start"}
+                {creating ? t("execution.runs.creating") : t("execution.runs.createStart")}
               </button>
             </div>
           </>
@@ -1182,6 +1188,7 @@ function NewRunModal({ onClose, onCreated }) {
 }
 
 function RunDefectModal({ runId, onClose, onCreated }) {
+  const { t } = useI18n();
   const modal = useModal(onClose);
   const [form, setForm] = useState({ title: "", severity: "med", description: "" });
   const [saving, setSaving] = useState(false);
@@ -1204,30 +1211,30 @@ function RunDefectModal({ runId, onClose, onCreated }) {
   return (
     <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...modal.overlayProps}>
       <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:440}} {...modal.dialogProps}>
-        <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 16px"}}>File defect for {runId}</h2>
+        <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 16px"}}>{t("execution.runs.fileDefectFor", { id: runId })}</h2>
         <div style={{display:"flex", flexDirection:"column", gap:10}}>
           <div>
-            <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>Title</label>
-            <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={form.title} placeholder="Describe the bug…" onChange={e => setForm(f => ({...f, title: e.target.value}))} autoFocus />
+            <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>{t("execution.runs.titleLabel")}</label>
+            <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={form.title} placeholder={t("execution.runs.describeBug")} onChange={e => setForm(f => ({...f, title: e.target.value}))} autoFocus />
           </div>
           <div>
-            <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>Description (optional)</label>
-            <textarea className="textarea" style={{width:"100%", boxSizing:"border-box", minHeight:56}} value={form.description} placeholder="Steps to reproduce…" onChange={e => setForm(f => ({...f, description: e.target.value}))} />
+            <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>{t("execution.runs.descriptionOptional")}</label>
+            <textarea className="textarea" style={{width:"100%", boxSizing:"border-box", minHeight:56}} value={form.description} placeholder={t("execution.runs.reproSteps")} onChange={e => setForm(f => ({...f, description: e.target.value}))} />
           </div>
           <div>
-            <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>Severity</label>
+            <label style={{fontSize:11, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.06em", display:"block", marginBottom:4}}>{t("execution.runs.severity")}</label>
             <select className="input" value={form.severity} onChange={e => setForm(f => ({...f, severity: e.target.value}))}>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="med">Medium</option>
-              <option value="low">Low</option>
+              <option value="critical">{t("execution.runs.critical")}</option>
+              <option value="high">{t("execution.runs.high")}</option>
+              <option value="med">{t("execution.runs.medium")}</option>
+              <option value="low">{t("execution.runs.low")}</option>
             </select>
           </div>
         </div>
         <div style={{display:"flex", gap:8, justifyContent:"flex-end", marginTop:20}}>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={onClose}>{t("execution.runs.cancel")}</button>
           <button className="btn accent" onClick={handleCreate} disabled={saving || !form.title.trim()}>
-            {saving ? "Filing…" : "File defect"}
+            {saving ? t("execution.runs.filing") : t("execution.runs.fileDefect")}
           </button>
         </div>
       </div>
@@ -1236,6 +1243,7 @@ function RunDefectModal({ runId, onClose, onCreated }) {
 }
 
 function FileDropZone({ entityType, entityId, onUploaded }) {
+  const { t } = useI18n();
   const [dragging, setDragging] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState(null);
@@ -1250,7 +1258,7 @@ function FileDropZone({ entityType, entityId, onUploaded }) {
         onUploaded(att);
       }
     } catch (e) {
-      setError("Upload failed: " + e.message);
+      setError(t("execution.runs.uploadFailed", { error: e.message }));
     }
     setUploading(false);
   };
@@ -1277,11 +1285,11 @@ function FileDropZone({ entityType, entityId, onUploaded }) {
           transition: "border-color .15s",
         }}
       >
-        {uploading ? "Uploading…" : (
+        {uploading ? t("execution.runs.uploading") : (
           <>
-            Drop files here or{" "}
+        {t("execution.runs.dropFiles")} {" "}
             <label style={{ color: "var(--accent)", cursor: "pointer" }}>
-              browse
+              {t("execution.runs.browse")}
               <input
                 type="file"
                 multiple
@@ -1298,6 +1306,7 @@ function FileDropZone({ entityType, entityId, onUploaded }) {
 }
 
 function AttachmentCard({ att, onDelete }) {
+  const { t } = useI18n();
   const isImage = att.mime_type && att.mime_type.startsWith("image/");
   const handleDelete = async () => {
     try {
@@ -1332,7 +1341,7 @@ function AttachmentCard({ att, onDelete }) {
           className="btn ghost icon sm"
           style={{color:"var(--fail)", padding:"1px 4px", fontSize:10}}
           onClick={handleDelete}
-          title="Delete attachment"
+          title={t("execution.runs.deleteAttachment")}
         >×</button>
       </div>
     </div>

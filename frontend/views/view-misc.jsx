@@ -1,6 +1,7 @@
 // Pipelines, Insights, Integrations, Landing — remaining views
 
 function Pipelines({ currentUser }) {
+  const { t, lang } = useI18n();
   const { data: D, loading, error } = useInitialData();
   const [rows, setRows] = React.useState(null);
   const canManage = window.can && window.can(currentUser, "manage");
@@ -29,7 +30,7 @@ function Pipelines({ currentUser }) {
 
   async function del(id, name, e) {
     e.stopPropagation();   // don't also open the run URL
-    if (!window.confirm(`Remove pipeline "${name}" from the list? (the run on the CI provider is untouched)`)) return;
+    if (!window.confirm(t("misc.pipelines.removeConfirm", { name }))) return;
     try {
       await TH_API.deletePipeline(id);
       setRows(rs => (rs || []).filter(p => p.id !== id));
@@ -59,40 +60,44 @@ function Pipelines({ currentUser }) {
 
   if (loading) return (
     <div className="page fade-in">
-      <div className="empty">Loading…</div>
+      <div className="empty">{t("misc.common.loading")}</div>
     </div>
   );
 
   if (!D) return (
     <div className="page fade-in">
-      <div className="empty">Error loading data{error ? `: ${error}` : ""}.</div>
+      <div className="empty">{t("misc.pipelines.loadError", { error: error ? `: ${error}` : "" })}</div>
     </div>
   );
 
   const list = rows || D.pipelines;
+  const formatWhen = (value) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(lang, { dateStyle: "medium", timeStyle: "short" }).format(date);
+  };
 
   return (
     <div className="page fade-in">
       <div className="page-h">
         <div>
-          <h1 className="page-title">CI pipelines</h1>
-          <div className="page-sub">Every CI run that touched your tests, alongside the manual results. Same timeline, one source of truth.</div>
+          <h1 className="page-title">{t("misc.pipelines.title")}</h1>
+          <div className="page-sub">{t("misc.pipelines.subtitle")}</div>
         </div>
-        {anyRunning && <div className="card-sub" style={{alignSelf:"center"}}>● live — refreshing…</div>}
+        {anyRunning && <div className="card-sub" style={{alignSelf:"center"}}>● {t("misc.pipelines.liveRefreshing")}</div>}
       </div>
 
       <div className="card" style={{marginBottom:14}}>
         <div className="card-h">
           <div>
-            <div className="card-title">Recent runs</div>
-            <div className="card-sub">CI pipeline results imported into ThoroTest</div>
+            <div className="card-title">{t("misc.pipelines.recentRuns")}</div>
+            <div className="card-sub">{t("misc.pipelines.recentRunsSubtitle")}</div>
           </div>
         </div>
         {list.length === 0 ? (
           <div className="empty" style={{padding:"48px 18px", textAlign:"center"}}>
-            <div style={{fontSize:13, marginBottom:6}}>No pipeline runs yet.</div>
+            <div style={{fontSize:13, marginBottom:6}}>{t("misc.pipelines.empty")}</div>
             <div className="mono dim" style={{fontSize:11}}>
-              Connect a CI provider (Configure → integrations) or push JUnit results to see runs here.
+              {t("misc.pipelines.emptyHint")}
             </div>
           </div>
         ) : (
@@ -100,13 +105,13 @@ function Pipelines({ currentUser }) {
             <thead>
               <tr>
                 <th style={{width:36}}></th>
-                <th>Workflow</th>
-                <th style={{width:100}}>Status</th>
-                <th style={{width:100}}>Duration</th>
-                <th style={{width:120}}>Commit</th>
-                <th style={{width:100}}>Branch</th>
-                <th style={{width:120}}>Author</th>
-                <th style={{width:100}}>When</th>
+                <th>{t("misc.pipelines.workflow")}</th>
+                <th style={{width:100}}>{t("misc.pipelines.status")}</th>
+                <th style={{width:100}}>{t("misc.pipelines.duration")}</th>
+                <th style={{width:120}}>{t("misc.pipelines.commit")}</th>
+                <th style={{width:100}}>{t("misc.pipelines.branch")}</th>
+                <th style={{width:120}}>{t("misc.pipelines.author")}</th>
+                <th style={{width:100}}>{t("misc.pipelines.when")}</th>
                 <th style={{width:40}}></th>
               </tr>
             </thead>
@@ -118,12 +123,12 @@ function Pipelines({ currentUser }) {
                 <React.Fragment key={p.id}>
                 <tr
                     style={p.url ? {cursor:"pointer"} : undefined}
-                    title={p.url ? "Open the run on the CI provider" : undefined}
+                    title={p.url ? t("misc.pipelines.openRun") : undefined}
                     onClick={p.url ? () => window.open(p.url, "_blank", "noopener,noreferrer") : undefined}>
                   <td>
                     {p.run_id ? (
                       <button className="btn ghost icon sm"
-                              title={isOpen ? "Collapse" : "Show test cases"}
+                              title={isOpen ? t("misc.pipelines.collapse") : t("misc.pipelines.showCases")}
                               onClick={e => toggleExpand(p, e)}
                               style={{transform: isOpen ? "rotate(90deg)" : "none", transition:"transform .12s"}}>
                         <Icon name="chev" />
@@ -140,9 +145,9 @@ function Pipelines({ currentUser }) {
                   <td className="mono" style={{color:"var(--accent)"}}>{p.commit}</td>
                   <td className="mono dim">{p.branch}</td>
                   <td className="mono dim">{p.author}</td>
-                  <td className="mono dim">{p.when}</td>
+                  <td className="mono dim">{formatWhen(p.when)}</td>
                   <td>
-                    <button className="btn ghost icon sm" title="Remove from list"
+                    <button className="btn ghost icon sm" title={t("misc.pipelines.removeFromList")}
                             style={{color:"var(--fail)"}}
                             onClick={e => del(p.id, p.name, e)}>
                       <Icon name="x" />
@@ -153,10 +158,10 @@ function Pipelines({ currentUser }) {
                   <tr className="pipeline-cases-row">
                     <td></td>
                     <td colSpan={8} style={{padding:0}}>
-                      {cs?.loading && <div className="dim" style={{padding:"8px 4px", fontSize:12}}>Loading test cases…</div>}
+                      {cs?.loading && <div className="dim" style={{padding:"8px 4px", fontSize:12}}>{t("misc.pipelines.loadingCases")}</div>}
                       {cs?.error && <div style={{padding:"8px 4px", fontSize:12, color:"var(--fail)"}}>{cs.error}</div>}
                       {cs?.items && cs.items.length === 0 && (
-                        <div className="dim" style={{padding:"8px 4px", fontSize:12}}>No test cases recorded for this run.</div>
+                        <div className="dim" style={{padding:"8px 4px", fontSize:12}}>{t("misc.pipelines.noCases")}</div>
                       )}
                       {cs?.items && cs.items.length > 0 && (
                         <table className="table" style={{margin:"2px 0 6px", background:"var(--bg-2)"}}>
@@ -187,6 +192,7 @@ function Pipelines({ currentUser }) {
 }
 
 function Insights() {
+  const { t } = useI18n();
   const [ins, setIns] = React.useState(null);
   const [insLoading, setInsLoading] = React.useState(true);
 
@@ -205,21 +211,21 @@ function Insights() {
     <div className="page fade-in">
       <div className="page-h">
         <div>
-          <h1 className="page-title">Insights</h1>
-          <div className="page-sub">Test health, coverage, and where your team is losing time.</div>
+          <h1 className="page-title">{t("misc.insights.title")}</h1>
+          <div className="page-sub">{t("misc.insights.subtitle")}</div>
         </div>
       </div>
 
       <div className="grid grid-4" style={{marginBottom:14}}>
-        <Metric label="Test cases" value={insLoading ? "…" : totalTests} />
-        <Metric label="Automation rate" value={insLoading ? "…" : automationRate} />
-        <Metric label="Pass rate" value={insLoading ? "…" : (ins && ins.pass_rate != null ? `${ins.pass_rate}%` : "—")} />
-        <Metric label="Open defects" value={insLoading ? "…" : (ins && ins.open_defects != null ? String(ins.open_defects) : "—")} />
+        <Metric label={t("misc.insights.testCases")} value={insLoading ? "…" : totalTests} />
+        <Metric label={t("misc.insights.automationRate")} value={insLoading ? "…" : automationRate} />
+        <Metric label={t("misc.insights.passRate")} value={insLoading ? "…" : (ins && ins.pass_rate != null ? `${ins.pass_rate}%` : "—")} />
+        <Metric label={t("misc.insights.openDefects")} value={insLoading ? "…" : (ins && ins.open_defects != null ? String(ins.open_defects) : "—")} />
       </div>
 
       <div className="grid grid-2" style={{marginBottom:14}}>
         <div className="card">
-          <div className="card-h"><div className="card-title">Coverage by area</div></div>
+          <div className="card-h"><div className="card-title">{t("misc.insights.coverageByArea")}</div></div>
           <div className="card-b" style={{display:"flex", flexDirection:"column", gap:10}}>
             {folderCoverage && folderCoverage.length > 0 ? (
               folderCoverage.map((f, i) => (
@@ -227,14 +233,14 @@ function Insights() {
               ))
             ) : (
               <div className="mono dim" style={{fontSize:11.5, padding:"8px 0"}}>
-                {insLoading ? "Loading…" : "No coverage data — link requirements to tests to see coverage by area."}
+                {insLoading ? t("misc.common.loading") : t("misc.insights.noCoverage")}
               </div>
             )}
           </div>
         </div>
 
         <div className="card">
-          <div className="card-h"><div className="card-title">Top 5 flaky tests</div><div className="card-sub">{">"} 10 runs in 30d</div></div>
+          <div className="card-h"><div className="card-title">{t("misc.insights.flakyTests")}</div><div className="card-sub">{t("misc.insights.flakyThreshold")}</div></div>
           <table className="table">
             <tbody>
               {ins && ins.top_flaky && ins.top_flaky.length > 0 ? (
@@ -243,13 +249,13 @@ function Insights() {
                     <td className="mono" style={{width:80}}>{r.id}</td>
                     <td style={{fontSize:12}}>{r.title}</td>
                     <td className="mono" style={{color:"var(--fail)", width:50, textAlign:"right"}}>{r.fail_rate}%</td>
-                    <td className="mono dim" style={{width:60, textAlign:"right"}}>{r.total_runs} runs</td>
+                    <td className="mono dim" style={{width:60, textAlign:"right"}}>{t("misc.insights.runCount", { count: r.total_runs })}</td>
                   </tr>
                 ))
               ) : insLoading ? (
-                <tr><td colSpan={4} style={{textAlign:"center", color:"var(--text-dim)", fontSize:12}}>Loading…</td></tr>
+                <tr><td colSpan={4} style={{textAlign:"center", color:"var(--text-dim)", fontSize:12}}>{t("misc.common.loading")}</td></tr>
               ) : (
-                <tr><td colSpan={4} style={{textAlign:"center", color:"var(--text-dim)", fontSize:12}}>No flaky tests found</td></tr>
+                <tr><td colSpan={4} style={{textAlign:"center", color:"var(--text-dim)", fontSize:12}}>{t("misc.insights.noFlakyTests")}</td></tr>
               )}
             </tbody>
           </table>
@@ -258,31 +264,31 @@ function Insights() {
 
       <div className="grid grid-2">
         <div className="card">
-          <div className="card-h"><div className="card-title">Manual vs automated</div><div className="card-sub">share of the test library</div></div>
+          <div className="card-h"><div className="card-title">{t("misc.insights.manualVsAutomated")}</div><div className="card-sub">{t("misc.insights.libraryShare")}</div></div>
           <div className="card-b">
             <div className="bar" style={{height:10}}>
               <span className="seg-pass" style={{width:`${ins ? ins.automation_rate : 0}%`}} />
               <span style={{background:"var(--info)", width:`${100 - (ins ? ins.automation_rate : 0)}%`}} />
             </div>
             <div style={{display:"flex", justifyContent:"space-between", marginTop:8, fontSize:11}}>
-              <span className="mono"><span style={{color:"var(--accent)"}}>●</span> automated {ins ? ins.automation_rate : 0}%</span>
-              <span className="mono"><span style={{color:"var(--info)"}}>●</span> manual {100 - (ins ? ins.automation_rate : 0)}%</span>
+              <span className="mono"><span style={{color:"var(--accent)"}}>●</span> {t("misc.insights.automatedPercent", { count: ins ? ins.automation_rate : 0 })}</span>
+              <span className="mono"><span style={{color:"var(--info)"}}>●</span> {t("misc.insights.manualPercent", { count: 100 - (ins ? ins.automation_rate : 0) })}</span>
             </div>
           </div>
         </div>
 
         <div className="card">
-          <div className="card-h"><div className="card-title">Open defects by severity</div></div>
+          <div className="card-h"><div className="card-title">{t("misc.insights.defectsBySeverity")}</div></div>
           <div className="card-b" style={{display:"flex", flexDirection:"column", gap:10}}>
             {insLoading ? (
-              <div className="mono dim" style={{fontSize:11.5}}>Loading…</div>
+              <div className="mono dim" style={{fontSize:11.5}}>{t("misc.common.loading")}</div>
             ) : ins && ins.open_defects > 0 ? (
               <>
-                <CoverageRow label="Critical" value={Math.round((ins.open_critical || 0) / ins.open_defects * 100)} mapped={`${ins.open_critical || 0}/${ins.open_defects}`} warn />
-                <CoverageRow label="High" value={Math.round((ins.open_high || 0) / ins.open_defects * 100)} mapped={`${ins.open_high || 0}/${ins.open_defects}`} warn />
+                <CoverageRow label={t("misc.insights.critical")} value={Math.round((ins.open_critical || 0) / ins.open_defects * 100)} mapped={`${ins.open_critical || 0}/${ins.open_defects}`} warn />
+                <CoverageRow label={t("misc.insights.high")} value={Math.round((ins.open_high || 0) / ins.open_defects * 100)} mapped={`${ins.open_high || 0}/${ins.open_defects}`} warn />
               </>
             ) : (
-              <div className="mono dim" style={{fontSize:11.5, padding:"8px 0"}}>No open defects.</div>
+              <div className="mono dim" style={{fontSize:11.5, padding:"8px 0"}}>{t("misc.insights.noOpenDefects")}</div>
             )}
           </div>
         </div>

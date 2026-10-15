@@ -15,8 +15,8 @@ function Settings({ currentUser, onProfileUpdate }) {
   const [tab, setTab] = useState("profile");
 
   return (
-    <div className="page fade-in" style={{ padding: 0, display: "flex", gap: 0, maxWidth: 1000, height: "100%" }}>
-      <div style={{
+    <div className="page fade-in settings-layout" style={{ padding: 0, display: "flex", gap: 0, maxWidth: 1000, height: "100%" }}>
+      <div className="settings-nav" style={{
         width: 180, flexShrink: 0,
         borderRight: "1px solid var(--border)",
         padding: "20px 0",
@@ -37,7 +37,7 @@ function Settings({ currentUser, onProfileUpdate }) {
         ))}
       </div>
 
-      <div style={{ flex: 1, padding: "28px 36px", overflowY: "auto" }}>
+      <div className="settings-content" style={{ flex: 1, padding: "28px 36px", overflowY: "auto" }}>
         {tab === "profile"    && <ProfileTab currentUser={currentUser} onProfileUpdate={onProfileUpdate} />}
         {tab === "password"   && <PasswordTab />}
         {tab === "projects"   && <ProjectsTab />}
@@ -92,7 +92,7 @@ function SaveBar({ loading, success, error, onSave, label }) {
   const { t } = useI18n();
   const btnLabel = label || t("common.save");
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 20 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 20 }}>
       <button className="btn primary" onClick={onSave} disabled={loading} style={{ minWidth: 120 }}>
         {loading ? t("common.saving") : btnLabel}
       </button>
@@ -138,7 +138,7 @@ function ProfileTab({ currentUser, onProfileUpdate }) {
         <TextInput value={currentUser?.username || ""} onChange={() => {}} disabled />
       </Field>
       <Field label={t("settings.profileSection.role")}>
-        <TextInput value={currentUser?.role || ""} onChange={() => {}} disabled />
+        <TextInput value={currentUser?.role ? t(`workspace.roles.${currentUser.role}`) : ""} onChange={() => {}} disabled />
       </Field>
       <Field label={t("settings.profileSection.language")} hint={t("settings.profileSection.languageSub")}>
         <select
@@ -365,6 +365,8 @@ function CategoriesTab({ currentUser }) {
                 <button
                   key={c}
                   onClick={() => setForm(f => ({ ...f, color: c }))}
+                  title={c}
+                  aria-label={c}
                   style={{
                     width: 24, height: 24, borderRadius: "50%", background: c, border: "none", cursor: "pointer",
                     outline: form.color === c ? "2px solid var(--text)" : "2px solid transparent",
@@ -440,6 +442,8 @@ function FolderRow({ folder, depth = 0, cb }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, marginLeft: depth * 16 }}>
         <button
           onClick={() => hasChildren && setCollapsed(c => !c)}
+          title={collapsed ? t("workspace.settings.expand") : t("workspace.settings.collapse")}
+          aria-label={collapsed ? t("workspace.settings.expand") : t("workspace.settings.collapse")}
           style={{ background: "none", border: "none", padding: 0, cursor: hasChildren ? "pointer" : "default", color: "var(--text-muted)", display: "inline-flex", flexShrink: 0, transition: "transform 0.15s", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
         >
           <Icon name={hasChildren ? "chevD" : "doc"} />
@@ -453,9 +457,9 @@ function FolderRow({ folder, depth = 0, cb }) {
           <>
             <span style={{ flex: 1, fontSize: 13 }}>{folder.name}</span>
             <span className="mono dim" style={{ fontSize: 10.5 }}>{t("settings.foldersSection.tests", { count: folder.count })}</span>
-            <button className="btn ghost icon" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => startRename(folder)} title="Rename">✎</button>
-            <button className="btn ghost icon" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => startCreate(folder.id)} title="Add sub-folder"><Icon name="plus" /></button>
-            <button className="btn ghost icon" style={{ fontSize: 11, padding: "2px 8px", color: "var(--fail)" }} onClick={() => remove(folder.id)} title="Delete">✕</button>
+            <button className="btn ghost icon" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => startRename(folder)} title={t("workspace.settings.rename")} aria-label={t("workspace.settings.rename")}>✎</button>
+            <button className="btn ghost icon" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => startCreate(folder.id)} title={t("workspace.settings.addSubfolder")} aria-label={t("workspace.settings.addSubfolder")}><Icon name="plus" /></button>
+            <button className="btn ghost icon" style={{ fontSize: 11, padding: "2px 8px", color: "var(--fail)" }} onClick={() => remove(folder.id)} title={t("workspace.settings.delete")} aria-label={t("workspace.settings.delete")}>✕</button>
           </>
         )}
       </div>
@@ -611,7 +615,7 @@ function NotificationsTab({ currentUser }) {
       setSaving(false);
       // The server rejects Slack URLs pointing at non-public hosts; surface the
       // reason rather than silently failing to save.
-      setError((err && err.detail) || "Could not save notification settings.");
+      setError((err && err.detail) || t("workspace.settings.saveError"));
     });
   }
 
@@ -645,44 +649,44 @@ function NotificationsTab({ currentUser }) {
 
   return (
     <div style={{ padding: "0 4px" }}>
-      <h3 style={{ marginBottom: 4 }}>Notifications</h3>
+      <h3 style={{ marginBottom: 4 }}>{t("workspace.settings.notificationsTitle")}</h3>
       <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 20 }}>
-        Configure delivery channels and event triggers.
+        {t("workspace.settings.notificationsDescription")}
       </p>
 
       {/* Event toggles */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Events</div>
-        {toggle("Notify on run complete", "notify_run_complete")}
-        {toggle("Notify on consecutive test failures", "notify_consecutive_fail")}
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>{t("workspace.settings.events")}</div>
+        {toggle(t("workspace.settings.notifyRunComplete"), "notify_run_complete")}
+        {toggle(t("workspace.settings.notifyConsecutiveFailures"), "notify_consecutive_fail")}
         {cfg.notify_consecutive_fail && (
           <div style={{ paddingLeft: 20, marginBottom: 10 }}>
-            {field("Failure threshold", "consecutive_fail_threshold", "number", "3")}
+            {field(t("workspace.settings.failureThreshold"), "consecutive_fail_threshold", "number", "3")}
           </div>
         )}
-        {toggle("Notify on new comments", "notify_comment")}
-        {toggle("Notify when @mentioned in a comment", "notify_mention")}
-        {toggle("Notify when a record is assigned to me", "notify_assigned")}
+        {toggle(t("workspace.settings.notifyComments"), "notify_comment")}
+        {toggle(t("workspace.settings.notifyMentions"), "notify_mention")}
+        {toggle(t("workspace.settings.notifyAssigned"), "notify_assigned")}
       </div>
 
       {/* Email section */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Email</div>
-        {toggle("Enable email notifications", "email_enabled")}
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>{t("workspace.settings.email")}</div>
+        {toggle(t("workspace.settings.enableEmail"), "email_enabled")}
         <p style={{ fontSize: 11, color: "var(--muted)", marginTop: -4 }}>
           {emailAvailable
-            ? "Mail is sent through the relay this instance is configured with."
-            : "No mail relay is configured on this instance, so email notifications will not be delivered. An administrator sets SMTP_HOST in the server environment."}
+            ? t("workspace.settings.relayAvailable")
+            : t("workspace.settings.relayUnavailable")}
         </p>
       </div>
 
       {/* Slack section */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Slack</div>
-        {toggle("Enable Slack notifications", "slack_enabled")}
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>{t("workspace.settings.slack")}</div>
+        {toggle(t("workspace.settings.enableSlack"), "slack_enabled")}
         {cfg.slack_enabled && (
           <div style={{ paddingLeft: 4 }}>
-            {field("Webhook URL", "slack_webhook_url", "url", "https://hooks.slack.com/...")}
+            {field(t("workspace.settings.webhookUrl"), "slack_webhook_url", "url", "https://hooks.slack.com/...")}
           </div>
         )}
       </div>
@@ -692,7 +696,7 @@ function NotificationsTab({ currentUser }) {
       )}
 
       <button className="btn primary" onClick={handleSave} disabled={saving}>
-        {saving ? "Saving…" : saved ? "Saved." : "Save changes"}
+        {saving ? t("workspace.settings.saving") : saved ? t("workspace.settings.saved") : t("workspace.settings.saveChanges")}
       </button>
     </div>
   );
@@ -701,6 +705,7 @@ function NotificationsTab({ currentUser }) {
 /* ── Security tab ────────────────────────────────────────── */
 
 function SecurityTab({ currentUser }) {
+  const { t } = useI18n();
   const [status, setStatus] = React.useState(null); // {remaining, enabled}
   const [loadErr, setLoadErr] = React.useState(null);
   const [dialog, setDialog] = React.useState(null); // 'enroll' | 'disable' | 'regen'
@@ -714,35 +719,35 @@ function SecurityTab({ currentUser }) {
   React.useEffect(() => { reload(); }, []);
 
   if (loadErr) return <div className="empty" style={{ color: "var(--fail)" }}>{loadErr}</div>;
-  if (!status) return <div className="empty">Loading…</div>;
+  if (!status) return <div className="empty">{t("workspace.settings.loading")}</div>;
 
   return (
-    <SettingSection title="Two-factor authentication" sub="Add a second factor to protect your account.">
+    <SettingSection title={t("workspace.settings.securityTitle")} sub={t("workspace.settings.securityDescription")}>
       {!status.enabled ? (
         <div>
           <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-            Two-factor authentication is not enabled on your account.
+            {t("workspace.settings.notEnabled")}
           </p>
           <button className="btn primary" onClick={() => setDialog("enroll")}>
-            Enable two-factor authentication
+            {t("workspace.settings.enable2fa")}
           </button>
         </div>
       ) : (
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--pass, #22c55e)", background: "rgba(34,197,94,0.12)", borderRadius: 4, padding: "2px 8px" }}>2FA active</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--pass, #22c55e)", background: "rgba(34,197,94,0.12)", borderRadius: 4, padding: "2px 8px" }}>{t("workspace.settings.active2fa")}</span>
           </div>
           <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 4 }}>
-            {status.remaining} recovery code{status.remaining !== 1 ? "s" : ""} remaining
+            {t(status.remaining === 1 ? "workspace.settings.recoveryCodeRemaining" : "workspace.settings.recoveryCodesRemaining", { count: status.remaining })}
           </p>
           {status.remaining <= 2 && (
             <p style={{ fontSize: 12, color: "var(--warn, #f59e0b)", marginBottom: 12 }}>
-              You are running low on recovery codes. Consider regenerating them.
+              {t("workspace.settings.lowRecoveryCodes")}
             </p>
           )}
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button className="btn" onClick={() => setDialog("regen")}>Regenerate recovery codes</button>
-            <button className="btn" style={{ color: "var(--fail)" }} onClick={() => setDialog("disable")}>Disable 2FA</button>
+            <button className="btn" onClick={() => setDialog("regen")}>{t("workspace.settings.regenerateRecoveryCodes")}</button>
+            <button className="btn" style={{ color: "var(--fail)" }} onClick={() => setDialog("disable")}>{t("workspace.settings.disable2fa")}</button>
           </div>
         </div>
       )}
@@ -761,6 +766,7 @@ function SecurityTab({ currentUser }) {
 }
 
 function EnrollDialog({ onClose }) {
+  const { t } = useI18n();
   const [step, setStep] = React.useState(1);
   const [setup, setSetup] = React.useState(null); // {secret, qr_data_uri}
   const [pendingSecret, setPendingSecret] = React.useState(null);
@@ -784,7 +790,7 @@ function EnrollDialog({ onClose }) {
       setRecoveryCodes(result.recovery_codes);
       setStep(3);
     } catch (err) {
-      setError(err.message || "Invalid code");
+      setError(err.message || t("workspace.settings.invalidCode"));
     } finally {
       setLoading(false);
     }
@@ -811,43 +817,43 @@ function EnrollDialog({ onClose }) {
       <div className="card" style={{ width: 420, maxWidth: "90vw", padding: 28, maxHeight: "90vh", overflowY: "auto" }}>
         {step === 1 && (
           <>
-            <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>Set up authenticator app</h3>
+            <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>{t("workspace.settings.setupAuthenticator")}</h3>
             {error && <div className="login-error" style={{ marginBottom: 12 }}>{error}</div>}
             {setup ? (
               <>
                 <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 12 }}>
-                  Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.), or enter the secret manually.
+                  {t("workspace.settings.scanQr")}
                 </p>
                 <div style={{ textAlign: "center", marginBottom: 16 }}>
-                  <img src={setup.qr_data_uri} alt="TOTP QR code" style={{ display: "block", margin: "0 auto", background: "#fff", borderRadius: 4, padding: 8 }} />
+                  <img src={setup.qr_data_uri} alt={t("workspace.settings.qrAlt")} style={{ display: "block", margin: "0 auto", background: "#fff", borderRadius: 4, padding: 8 }} />
                 </div>
                 <div style={{ marginBottom: 16 }}>
-                  <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Manual secret</label>
+                  <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>{t("workspace.settings.manualSecret")}</label>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <input className="login-input" readOnly value={setup.secret} style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }} data-testid="totp-secret" />
-                    <button className="btn" onClick={() => navigator.clipboard.writeText(setup.secret).catch(() => {})}>Copy</button>
+                    <button className="btn" onClick={() => navigator.clipboard.writeText(setup.secret).catch(() => {})}>{t("workspace.settings.copy")}</button>
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn primary" onClick={() => setStep(2)}>Next</button>
-                  <button className="btn" onClick={onClose}>Cancel</button>
+                  <button className="btn primary" onClick={() => setStep(2)}>{t("workspace.settings.next")}</button>
+                  <button className="btn" onClick={onClose}>{t("workspace.settings.cancel")}</button>
                 </div>
               </>
             ) : (
-              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading…</p>
+              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("workspace.settings.loading")}</p>
             )}
           </>
         )}
 
         {step === 2 && (
           <>
-            <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>Verify your authenticator</h3>
+            <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>{t("workspace.settings.verifyAuthenticator")}</h3>
             <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-              Enter the 6-digit code shown in your authenticator app to confirm it is set up correctly.
+              {t("workspace.settings.verifyDescription")}
             </p>
             <form onSubmit={submitCode}>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>TOTP code</label>
+                <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>{t("workspace.settings.totpCode")}</label>
                 <input
                   className="login-input"
                   type="text"
@@ -861,8 +867,8 @@ function EnrollDialog({ onClose }) {
               </div>
               {error && <div className="login-error" style={{ marginBottom: 12 }}>{error}</div>}
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="submit" className="btn primary" disabled={loading}>{loading ? "Verifying…" : "Verify"}</button>
-                <button type="button" className="btn" onClick={onClose}>Cancel</button>
+                <button type="submit" className="btn primary" disabled={loading}>{loading ? t("workspace.settings.verifying") : t("workspace.settings.verify")}</button>
+                <button type="button" className="btn" onClick={onClose}>{t("workspace.settings.cancel")}</button>
               </div>
             </form>
           </>
@@ -870,22 +876,22 @@ function EnrollDialog({ onClose }) {
 
         {step === 3 && (
           <>
-            <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>Save your recovery codes</h3>
+            <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>{t("workspace.settings.saveRecoveryCodes")}</h3>
             <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 12 }}>
-              Store these 10 recovery codes somewhere safe. Each code can be used once to access your account if you lose your authenticator.
+              {t("workspace.settings.recoveryDescription")}
             </p>
             <div style={{ fontFamily: "monospace", fontSize: 13, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 6, padding: 12, marginBottom: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
               {recoveryCodes.map((c, i) => <span key={i}>{c}</span>)}
             </div>
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              <button className="btn" onClick={copyAll}>Copy all</button>
-              <button className="btn" onClick={download}>Download .txt</button>
+              <button className="btn" onClick={copyAll}>{t("workspace.settings.copyAll")}</button>
+              <button className="btn" onClick={download}>{t("workspace.settings.downloadTxt")}</button>
             </div>
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 16, fontSize: 13 }}>
               <input type="checkbox" checked={acked} onChange={e => setAcked(e.target.checked)} data-testid="ack-checkbox" />
-              I have saved my codes
+              {t("workspace.settings.savedCodes")}
             </label>
-            <button className="btn primary" disabled={!acked} onClick={onClose} data-testid="finish-btn">Finish</button>
+            <button className="btn primary" disabled={!acked} onClick={onClose} data-testid="finish-btn">{t("workspace.settings.finish")}</button>
           </>
         )}
       </div>
@@ -894,6 +900,7 @@ function EnrollDialog({ onClose }) {
 }
 
 function DisableDialog({ onClose }) {
+  const { t } = useI18n();
   const [code, setCode] = React.useState("");
   const [error, setError] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
@@ -905,7 +912,7 @@ function DisableDialog({ onClose }) {
       await window.TH_API.disable2FA(code.trim());
       onClose();
     } catch (err) {
-      setError(err.message || "Invalid code");
+      setError(err.message || t("workspace.settings.invalidCode"));
       setLoading(false);
     }
   }
@@ -913,13 +920,13 @@ function DisableDialog({ onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div className="card" style={{ width: 380, maxWidth: "90vw", padding: 28 }}>
-        <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600, color: "var(--fail)" }}>Disable two-factor authentication</h3>
+        <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600, color: "var(--fail)" }}>{t("workspace.settings.disableTitle")}</h3>
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-          Disabling 2FA reduces account security. Enter your current TOTP code to confirm.
+          {t("workspace.settings.disableDescription")}
         </p>
         <form onSubmit={confirm}>
           <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>TOTP code</label>
+            <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>{t("workspace.settings.totpCode")}</label>
             <input
               className="login-input"
               type="text"
@@ -933,8 +940,8 @@ function DisableDialog({ onClose }) {
           </div>
           {error && <div className="login-error" style={{ marginBottom: 12 }}>{error}</div>}
           <div style={{ display: "flex", gap: 8 }}>
-            <button type="submit" className="btn primary" disabled={loading} style={{ background: "var(--fail)" }}>{loading ? "Disabling…" : "Confirm disable"}</button>
-            <button type="button" className="btn" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn primary" disabled={loading} style={{ background: "var(--fail)" }}>{loading ? t("workspace.settings.disabling") : t("workspace.settings.confirmDisable")}</button>
+            <button type="button" className="btn" onClick={onClose}>{t("workspace.settings.cancel")}</button>
           </div>
         </form>
       </div>
@@ -943,6 +950,7 @@ function DisableDialog({ onClose }) {
 }
 
 function RegenDialog({ onClose }) {
+  const { t } = useI18n();
   const [code, setCode] = React.useState("");
   const [error, setError] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
@@ -955,7 +963,7 @@ function RegenDialog({ onClose }) {
       const result = await window.TH_API.regenerate2FACodes(code.trim());
       setCodes(result.recovery_codes);
     } catch (err) {
-      setError(err.message || "Invalid code");
+      setError(err.message || t("workspace.settings.invalidCode"));
       setLoading(false);
     }
   }
@@ -981,13 +989,13 @@ function RegenDialog({ onClose }) {
       <div className="card" style={{ width: 400, maxWidth: "90vw", padding: 28, maxHeight: "90vh", overflowY: "auto" }}>
         {!codes ? (
           <>
-            <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>Regenerate recovery codes</h3>
+            <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>{t("workspace.settings.regenerateRecoveryCodes")}</h3>
             <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-              Enter your current TOTP code to generate 10 new recovery codes. Your old codes will be invalidated.
+              {t("workspace.settings.regenerateDescription")}
             </p>
             <form onSubmit={submit}>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>TOTP code</label>
+                <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>{t("workspace.settings.totpCode")}</label>
                 <input
                   className="login-input"
                   type="text"
@@ -1001,25 +1009,25 @@ function RegenDialog({ onClose }) {
               </div>
               {error && <div className="login-error" style={{ marginBottom: 12 }}>{error}</div>}
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="submit" className="btn primary" disabled={loading}>{loading ? "Regenerating…" : "Regenerate"}</button>
-                <button type="button" className="btn" onClick={onClose}>Cancel</button>
+                <button type="submit" className="btn primary" disabled={loading}>{loading ? t("workspace.settings.regenerating") : t("workspace.settings.regenerate")}</button>
+                <button type="button" className="btn" onClick={onClose}>{t("workspace.settings.cancel")}</button>
               </div>
             </form>
           </>
         ) : (
           <>
-            <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>New recovery codes</h3>
+            <h3 style={{ marginBottom: 12, fontSize: 15, fontWeight: 600 }}>{t("workspace.settings.newRecoveryCodes")}</h3>
             <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 12 }}>
-              Your old recovery codes have been invalidated. Store these 10 new codes somewhere safe.
+              {t("workspace.settings.oldCodesInvalidated")}
             </p>
             <div style={{ fontFamily: "monospace", fontSize: 13, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 6, padding: 12, marginBottom: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
               {codes.map((c, i) => <span key={i}>{c}</span>)}
             </div>
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              <button className="btn" onClick={copyAll}>Copy all</button>
-              <button className="btn" onClick={download}>Download .txt</button>
+              <button className="btn" onClick={copyAll}>{t("workspace.settings.copyAll")}</button>
+              <button className="btn" onClick={download}>{t("workspace.settings.downloadTxt")}</button>
             </div>
-            <button className="btn primary" onClick={onClose}>Done</button>
+            <button className="btn primary" onClick={onClose}>{t("workspace.settings.done")}</button>
           </>
         )}
       </div>

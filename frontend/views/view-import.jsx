@@ -3,37 +3,38 @@
 const { useState, useRef, useCallback } = React;
 
 const FORMATS = [
-  { id: "csv",          label: "CSV",           sub: "TestRail · Zephyr · Azure · generic" },
-  { id: "xlsx",         label: "Excel (.xlsx)", sub: "Spreadsheet export · first worksheet · column mapping" },
-  { id: "testrail_xml", label: "TestRail XML",  sub: "Native .xml export from TestRail" },
-  { id: "testlink_xml", label: "TestLink XML",  sub: "Native .xml export from TestLink" },
-  { id: "junit_xml",    label: "JUnit XML",     sub: "Automated test results · Jenkins · GitHub Actions" },
-  { id: "json",         label: "JSON",          sub: "Allure · Testomat.io · generic" },
-  { id: "zephyr",       label: "Zephyr Scale",  sub: "JSON export / REST API from Zephyr Scale (TM4J)" },
-  { id: "xray",         label: "Xray",          sub: "Xray for Jira — test JSON / execution results" },
-  { id: "qtest",        label: "qTest",         sub: "Tricentis qTest — test case JSON export / API" },
+  { id: "csv", label: "CSV", sub: "import.formats.csv" },
+  { id: "xlsx", label: "Excel (.xlsx)", sub: "import.formats.xlsx" },
+  { id: "testrail_xml", label: "TestRail XML", sub: "import.formats.testrailXml" },
+  { id: "testlink_xml", label: "TestLink XML", sub: "import.formats.testlinkXml" },
+  { id: "junit_xml", label: "JUnit XML", sub: "import.formats.junitXml" },
+  { id: "json", label: "JSON", sub: "import.formats.json" },
+  { id: "zephyr", label: "Zephyr Scale", sub: "import.formats.zephyr" },
+  { id: "xray", label: "Xray", sub: "import.formats.xray" },
+  { id: "qtest", label: "qTest", sub: "import.formats.qtest" },
 ];
 
 const CONFLICT_OPTIONS = [
-  { id: "skip",      label: "Skip duplicates",    sub: "Keep existing test if title matches" },
-  { id: "overwrite", label: "Overwrite",          sub: "Update existing test with imported data" },
-  { id: "rename",    label: "Rename",             sub: "Import as new test with '(imported)' suffix" },
+  { id: "skip", label: "import.conflicts.skip", sub: "import.conflicts.skipHint" },
+  { id: "overwrite", label: "import.conflicts.overwrite", sub: "import.conflicts.overwriteHint" },
+  { id: "rename", label: "import.conflicts.rename", sub: "import.conflicts.renameHint" },
 ];
 
 const CANONICAL_FIELDS = [
-  { id: "title",       label: "Title *" },
-  { id: "folder_path", label: "Folder / Section" },
-  { id: "type",        label: "Type" },
-  { id: "priority",    label: "Priority" },
-  { id: "status",      label: "Status" },
-  { id: "owner",       label: "Owner" },
-  { id: "tags",        label: "Tags" },
-  { id: "source_id",   label: "Source ID" },
+  { id: "title", label: "import.fields.title" },
+  { id: "folder_path", label: "import.fields.folder" },
+  { id: "type", label: "import.fields.type" },
+  { id: "priority", label: "import.fields.priority" },
+  { id: "status", label: "import.fields.status" },
+  { id: "owner", label: "import.fields.owner" },
+  { id: "tags", label: "import.fields.tags" },
+  { id: "source_id", label: "import.fields.sourceId" },
 ];
 
 /* ── helpers ──────────────────────────────────────────────── */
 
 function Badge({ label, color }) {
+  const { t } = useI18n();
   const colors = {
     pass: "var(--green, #22c55e)",
     fail: "var(--red, #ef4444)",
@@ -51,13 +52,14 @@ function Badge({ label, color }) {
       fontWeight: 600,
       background: (colors[label?.toLowerCase()] || colors[color] || "#6366f1") + "22",
       color: colors[label?.toLowerCase()] || colors[color] || "#6366f1",
-    }}>{label}</span>
+    }}>{({ pass: t("import.badges.pass"), fail: t("import.badges.fail"), critical: t("import.badges.critical"), high: t("import.badges.high"), med: t("import.badges.medium"), low: t("import.badges.low") })[String(label || "").toLowerCase()] || label}</span>
   );
 }
 
 /* ── DropZone ─────────────────────────────────────────────── */
 
 function DropZone({ onFile }) {
+  const { t } = useI18n();
   const [drag, setDrag] = useState(false);
   const inputRef = useRef();
 
@@ -88,9 +90,9 @@ function DropZone({ onFile }) {
       }}
     >
       <div style={{ fontSize: 28, marginBottom: 8 }}>⬆</div>
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>Drop file here or click to browse</div>
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>{t("import.dropzone.prompt")}</div>
       <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-        .csv · .xlsx · .xml · .json — max 10 MB
+        {t("import.dropzone.acceptedFiles")}
       </div>
       <input
         ref={inputRef}
@@ -106,23 +108,24 @@ function DropZone({ onFile }) {
 /* ── ColumnMapper ─────────────────────────────────────────── */
 
 function ColumnMapper({ headers, mapping, onChange }) {
+  const { t } = useI18n();
   return (
     <div>
-      <div style={{ fontWeight: 600, marginBottom: 10 }}>Column mapping</div>
+      <div style={{ fontWeight: 600, marginBottom: 10 }}>{t("import.columnMapping.title")}</div>
       <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
-        Auto-detected — adjust if needed.
+        {t("import.columnMapping.hint")}
       </div>
       <table className="table" style={{ fontSize: 13 }}>
         <thead>
           <tr>
-            <th>ThoroTest field</th>
-            <th>Source column</th>
+            <th>{t("import.columnMapping.targetField")}</th>
+            <th>{t("import.columnMapping.sourceColumn")}</th>
           </tr>
         </thead>
         <tbody>
           {CANONICAL_FIELDS.map(f => (
             <tr key={f.id}>
-              <td style={{ color: "var(--text-muted)", width: 160 }}>{f.label}</td>
+              <td style={{ color: "var(--text-muted)", width: 160 }}>{t(f.label)}</td>
               <td>
                 <select
                   value={mapping[f.id] || ""}
@@ -137,7 +140,7 @@ function ColumnMapper({ headers, mapping, onChange }) {
                     width: "100%",
                   }}
                 >
-                  <option value="">(ignore)</option>
+                  <option value="">{t("import.columnMapping.ignore")}</option>
                   {headers.map(h => (
                     <option key={h} value={h}>{h}</option>
                   ))}
@@ -154,21 +157,22 @@ function ColumnMapper({ headers, mapping, onChange }) {
 /* ── PreviewPanel ─────────────────────────────────────────── */
 
 function PreviewPanel({ preview }) {
+  const { t } = useI18n();
   if (!preview) return null;
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div className="card-h">
-        <div className="card-title">Preview</div>
-        {preview.format && <span className="chip active">{preview.format}</span>}
+        <div className="card-title">{t("import.preview.title")}</div>
+        {preview.format && <span className="chip active">{(() => { const key = `import.formatNames.${preview.format}`; const label = t(key); return label === key ? preview.format : label; })()}</span>}
       </div>
 
       <div className="grid grid-4" style={{ marginBottom: 16 }}>
         {[
-          { label: "Tests",   value: preview.tests },
-          { label: "Folders", value: preview.folders },
-          { label: "Runs",    value: preview.runs },
-          { label: "Defects", value: preview.defects },
+          { label: t("import.fields.tests"), value: preview.tests },
+          { label: t("import.fields.folders"), value: preview.folders },
+          { label: t("import.fields.runs"), value: preview.runs },
+          { label: t("import.fields.defects"), value: preview.defects },
         ].map(m => (
           <div key={m.label} style={{
             background: "var(--surface-raised, var(--surface))",
@@ -199,15 +203,15 @@ function PreviewPanel({ preview }) {
       {preview.sample_tests?.length > 0 && (
         <div>
           <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>
-            Sample (first {preview.sample_tests.length} tests)
+            {t("import.preview.sample", { count: preview.sample_tests.length })}
           </div>
           <table className="table" style={{ fontSize: 12 }}>
             <thead>
               <tr>
-                <th>Title</th>
-                <th>Folder</th>
-                <th>Type</th>
-                <th>Priority</th>
+                <th>{t("import.fields.title")}</th>
+                <th>{t("import.fields.folder")}</th>
+                <th>{t("import.fields.type")}</th>
+                <th>{t("import.fields.priority")}</th>
               </tr>
             </thead>
             <tbody>
@@ -230,13 +234,13 @@ function PreviewPanel({ preview }) {
 /* ── ResultPanel ─────────────────────────────────────────── */
 
 function ResultPanel({ result, onReset }) {
+  const { t } = useI18n();
   return (
     <div className="card fade-in" style={{ textAlign: "center", padding: 32 }}>
       <div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>
-      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Import complete</div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{t("import.result.complete")}</div>
       <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20 }}>
-        {result.imported.tests} tests · {result.imported.folders} folders · {result.imported.runs} runs · {result.imported.defects} defects imported
-        {result.imported.skipped > 0 && ` · ${result.imported.skipped} skipped`}
+        {t(result.imported.skipped > 0 ? "import.result.summaryWithSkipped" : "import.result.summary", result.imported)}
       </div>
       {result.warnings?.length > 0 && (
         <div style={{
@@ -252,7 +256,7 @@ function ResultPanel({ result, onReset }) {
           {result.warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
         </div>
       )}
-      <button className="btn btn-primary" onClick={onReset}>Import another file</button>
+      <button className="btn btn-primary" onClick={onReset}>{t("import.result.anotherFile")}</button>
     </div>
   );
 }
@@ -260,6 +264,7 @@ function ResultPanel({ result, onReset }) {
 /* ── Main Import view ─────────────────────────────────────── */
 
 function Import() {
+  const { t } = useI18n();
   const [file, setFile] = useState(null);
   const [detectedFmt, setDetectedFmt] = useState(null);
   const [format, setFormat] = useState(null);
@@ -287,9 +292,9 @@ function Import() {
     const fd = new FormData();
     fd.append("file", f);
     try {
-      const res = await fetch("/api/import/detect", { method: "POST", body: fd,
-        headers: { Authorization: `Bearer ${localStorage.getItem("th_token")}` }
-      });
+      const headers = window.authHeaders();
+      delete headers["Content-Type"];
+      const res = await fetch("/api/import/detect", { method: "POST", body: fd, headers });
       const data = await res.json();
       setDetectedFmt(data.format);
       setFormat(null);
@@ -298,7 +303,7 @@ function Import() {
         setColumnMapping(data.csv_meta.mapping || {});
       }
     } catch (e) {
-      setError("Could not detect file format.");
+      setError(t("import.errors.detectFailed"));
     }
   };
 
@@ -313,11 +318,11 @@ function Import() {
       fd.append("column_mapping", JSON.stringify(columnMapping));
     }
     try {
-      const res = await fetch("/api/import/preview", { method: "POST", body: fd,
-        headers: { Authorization: `Bearer ${localStorage.getItem("th_token")}` }
-      });
+      const headers = window.authHeaders();
+      delete headers["Content-Type"];
+      const res = await fetch("/api/import/preview", { method: "POST", body: fd, headers });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Preview failed");
+      if (!res.ok) throw new Error(data.detail || t("import.errors.previewFailed"));
       setPreview(data);
     } catch (e) {
       setError(e.message);
@@ -338,11 +343,11 @@ function Import() {
     }
     fd.append("conflict", conflict);
     try {
-      const res = await fetch("/api/import/execute", { method: "POST", body: fd,
-        headers: { Authorization: `Bearer ${localStorage.getItem("th_token")}` }
-      });
+      const headers = window.authHeaders();
+      delete headers["Content-Type"];
+      const res = await fetch("/api/import/execute", { method: "POST", body: fd, headers });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Import failed");
+      if (!res.ok) throw new Error(data.detail || t("import.errors.importFailed"));
       setResult(data);
       if (window.TH_API) await window.TH_API.init();
     } catch (e) {
@@ -363,8 +368,8 @@ function Import() {
       <div className="page fade-in" style={{ maxWidth: 680 }}>
         <div className="page-h" style={{ marginBottom: 20 }}>
           <div>
-            <h1 className="page-title">Import</h1>
-            <div className="page-sub">Bring in tests from TestRail, Zephyr, Azure, JUnit, and more.</div>
+            <h1 className="page-title">{t("import.title")}</h1>
+            <div className="page-sub">{t("import.subtitle")}</div>
           </div>
         </div>
         <ResultPanel result={result} onReset={reset} />
@@ -376,18 +381,18 @@ function Import() {
     <div className="page fade-in" style={{ maxWidth: 780 }}>
       <div className="page-h" style={{ marginBottom: 20 }}>
         <div>
-          <h1 className="page-title">Import</h1>
-          <div className="page-sub">Bring in tests from TestRail, Zephyr, Azure, JUnit, and more.</div>
+          <h1 className="page-title">{t("import.title")}</h1>
+          <div className="page-sub">{t("import.subtitle")}</div>
         </div>
       </div>
 
       {/* Step 1: Upload */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-h">
-          <div className="card-title">1 · Upload file</div>
+          <div className="card-title">{t("import.stepUpload")}</div>
           {file && (
             <button className="btn btn-sm" style={{ fontSize: 11 }} onClick={reset}>
-              Change file
+              {t("import.changeFile")}
             </button>
           )}
         </div>
@@ -398,7 +403,7 @@ function Import() {
               <Icon name="doc" style={{ color: "var(--accent)" }} />
               <span style={{ fontWeight: 500 }}>{file.name}</span>
               <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
-                {(file.size / 1024).toFixed(1)} KB
+                {t("import.fileSize", { size: (file.size / 1024).toFixed(1) })}
               </span>
               {detectedFmt && <Badge label={detectedFmt} color="med" />}
             </div>
@@ -409,7 +414,7 @@ function Import() {
       {/* Step 2: Format */}
       {file && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title" style={{ marginBottom: 12 }}>2 · Format</div>
+          <div className="card-title" style={{ marginBottom: 12 }}>{t("import.stepFormat")}</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
             {FORMATS.map(f => {
               const active = effectiveFmt === f.id;
@@ -428,7 +433,7 @@ function Import() {
                   }}
                 >
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{f.label}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{f.sub}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{t(f.sub)}</div>
                 </button>
               );
             })}
@@ -439,7 +444,7 @@ function Import() {
       {/* Step 3: Column mapping (CSV only) */}
       {file && isTabular && csvMeta && (
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-title" style={{ marginBottom: 12 }}>3 · Column mapping</div>
+          <div className="card-title" style={{ marginBottom: 12 }}>{t("import.stepMapping")}</div>
           <ColumnMapper
             headers={csvMeta.headers}
             mapping={columnMapping}
@@ -452,7 +457,7 @@ function Import() {
       {file && effectiveFmt && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title" style={{ marginBottom: 12 }}>
-            {isTabular && csvMeta ? "4" : "3"} · Duplicate handling
+            {t("import.duplicateHandling", { step: isTabular && csvMeta ? 4 : 3 })}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {CONFLICT_OPTIONS.map(o => (
@@ -472,8 +477,8 @@ function Import() {
                   style={{ accentColor: "var(--accent)" }}
                 />
                 <div>
-                  <div style={{ fontWeight: 500, fontSize: 13 }}>{o.label}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{o.sub}</div>
+                  <div style={{ fontWeight: 500, fontSize: 13 }}>{t(o.label)}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{t(o.sub)}</div>
                 </div>
               </label>
             ))}
@@ -504,14 +509,14 @@ function Import() {
               onClick={handlePreview}
               disabled={previewLoading}
             >
-              {previewLoading ? "Loading preview…" : "Preview"}
+              {previewLoading ? t("import.loadingPreview") : t("import.preview.title")}
             </button>
             <button
               className="btn btn-primary"
               onClick={handleImport}
               disabled={importing}
             >
-              {importing ? "Importing…" : "Import"}
+              {importing ? t("import.importing") : t("import.title")}
             </button>
           </div>
         </>

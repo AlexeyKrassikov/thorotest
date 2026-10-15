@@ -7,7 +7,8 @@ window.TH_I18N = (() => {
   const STORAGE_KEY = "th_lang";
   const DEFAULT_LANG = "en";
 
-  let _lang = localStorage.getItem(STORAGE_KEY) || DEFAULT_LANG;
+  let _lang = DEFAULT_LANG;
+  try { _lang = localStorage.getItem(STORAGE_KEY) || DEFAULT_LANG; } catch (_) {}
   const _listeners = new Set();
 
   function _resolve(lang, key) {
@@ -37,8 +38,14 @@ window.TH_I18N = (() => {
     }
     _lang = lang;
     document.documentElement.lang = lang;
-    localStorage.setItem(STORAGE_KEY, lang);
+    document.title = `ThoroTest — ${t("login.management")}`;
+    try { localStorage.setItem(STORAGE_KEY, lang); } catch (_) {}
     _listeners.forEach(fn => fn(lang));
+  }
+
+  // Called after locale scripts have loaded, before the first React render.
+  function initialize() {
+    setLanguage(window.TH_LOCALES[_lang] ? _lang : DEFAULT_LANG);
   }
 
   function getLanguage() {
@@ -54,5 +61,5 @@ window.TH_I18N = (() => {
     return Object.keys(window.TH_LOCALES);
   }
 
-  return { t, setLanguage, getLanguage, subscribe, getSupportedLanguages };
+  return { t, initialize, setLanguage, getLanguage, subscribe, getSupportedLanguages };
 })();

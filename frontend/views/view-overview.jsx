@@ -1,19 +1,20 @@
 // Overview screen — dashboard
 
 // "2026-07-04T10:00:00+00:00" → "12m", "8h", "3d"
-function timeAgo(iso) {
+function timeAgo(iso, lang = "en", t = key => key) {
   if (!iso) return "";
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return iso;
   const s = Math.max(0, (Date.now() - then) / 1000);
-  if (s < 60) return "now";
-  if (s < 3600) return `${Math.floor(s / 60)}m`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h`;
-  if (s < 86400 * 7) return `${Math.floor(s / 86400)}d`;
-  return `${Math.floor(s / 86400 / 7)}w`;
+  if (s < 60) return t("execution.overview.timeNow");
+  if (s < 3600) return t("execution.overview.timeMinutes", { count: Math.floor(s / 60) });
+  if (s < 86400) return t("execution.overview.timeHours", { count: Math.floor(s / 3600) });
+  if (s < 86400 * 7) return t("execution.overview.timeDays", { count: Math.floor(s / 86400) });
+  return t("execution.overview.timeWeeks", { count: Math.floor(s / 86400 / 7) });
 }
 
 function Overview({ onNav, onOpenTest, onOpenRun, onOpenDefect, currentUser }) {
+  const { t, lang } = useI18n();
   // Map an activity target id to its opener, or null if it isn't linkable.
   const targetOpener = (t) => {
     if (!t) return null;
@@ -39,20 +40,20 @@ function Overview({ onNav, onOpenTest, onOpenRun, onOpenDefect, currentUser }) {
 
   if (loading) return (
     <div className="page fade-in">
-      <div className="empty">Loading…</div>
+      <div className="empty">{t("execution.overview.loading")}</div>
     </div>
   );
 
   if (!D) return (
     <div className="page fade-in">
-      <div className="empty">Failed to load data{error ? `: ${error}` : ""}.</div>
+      <div className="empty">{t("execution.overview.loadError", { error: error ? `: ${error}` : "" })}</div>
     </div>
   );
 
   const passRate = insights ? `${insights.pass_rate}%` : "—";
   const openDefects = insights ? String(insights.open_defects) : "—";
   const defectDelta = insights
-    ? `${insights.open_critical} critical · ${insights.open_high} high`
+    ? `${insights.open_critical} ${t("execution.overview.critical")} · ${insights.open_high} ${t("execution.overview.high")}`
     : "—";
   const totalTests = insights ? String(insights.total_tests) : "—";
   const automationRate = insights ? `${insights.automation_rate}%` : "—";
@@ -61,36 +62,36 @@ function Overview({ onNav, onOpenTest, onOpenRun, onOpenDefect, currentUser }) {
   const failingMain = D.runs.filter(r => r.status === "fail" && r.branch === "main").length;
 
   const hour = new Date().getHours();
-  const daypart = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
+  const daypart = hour < 12 ? "greetingMorning" : hour < 18 ? "greetingAfternoon" : "greetingEvening";
   const firstName = (currentUser?.display_name || currentUser?.username || "").split(" ")[0];
 
   const subParts = [];
-  subParts.push(activeRuns === 1 ? "1 run is active" : `${activeRuns} runs are active`);
-  if (failingMain > 0) subParts.push(<span key="f">{failingMain === 1 ? "1 build is failing" : `${failingMain} builds are failing`} on <span className="mono">main</span></span>);
-  if (insights && insights.open_defects > 0) subParts.push(`${insights.open_defects} defects are open`);
+  subParts.push(activeRuns === 1 ? t("execution.overview.activeRunOne") : t("execution.overview.activeRuns", { count: activeRuns }));
+  if (failingMain > 0) subParts.push(<span key="f">{failingMain === 1 ? t("execution.overview.failingBuildOne") : t("execution.overview.failingBuilds", { count: failingMain })} {t("execution.overview.onBranch")} <span className="mono">main</span></span>);
+  if (insights && insights.open_defects > 0) subParts.push(t("execution.overview.defectsOpen", { count: insights.open_defects }));
 
   return (
     <div className="page fade-in">
       <div className="page-h">
         <div>
-          <div className="eyebrow"><span className="dot" /> Workspace</div>
-          <h1 className="page-title" style={{marginTop:8}}>Good {daypart}{firstName ? `, ${firstName}` : ""}.</h1>
+          <div className="eyebrow"><span className="dot" /> {t("execution.overview.workspace")}</div>
+          <h1 className="page-title" style={{marginTop:8}}>{t(`execution.overview.${daypart}`)}{firstName ? `, ${firstName}` : ""}.</h1>
           <div className="page-sub">
-            {subParts.map((p, i) => <React.Fragment key={i}>{i > 0 && (i === subParts.length - 1 ? " and " : ", ")}{p}</React.Fragment>)}.
+            {subParts.map((p, i) => <React.Fragment key={i}>{i > 0 && (i === subParts.length - 1 ? ` ${t("execution.overview.and")} ` : ", ")}{p}</React.Fragment>)}.
           </div>
         </div>
         <div className="actions">
-          <button className="btn" onClick={() => TH_API.exportTestsCSV()}><Icon name="download" /> Export report</button>
-          <button className="btn accent" onClick={() => onNav("runs")}><Icon name="play" /> Start a run</button>
+          <button className="btn" onClick={() => TH_API.exportTestsCSV()}><Icon name="download" /> {t("execution.overview.exportReport")}</button>
+          <button className="btn accent" onClick={() => onNav("runs")}><Icon name="play" /> {t("execution.overview.startRun")}</button>
         </div>
       </div>
 
       {/* Metrics row */}
       <div className="grid grid-4" style={{marginBottom:14}}>
-        <Metric label="Pass rate" value={passRate} delta="of all tests in library" />
-        <Metric label="Open defects" value={openDefects} delta={defectDelta} />
-        <Metric label="Total tests" value={totalTests} delta={automationRate + " automated"} up sub="in library" />
-        <Metric label="Active runs" value={String(activeRuns)} delta={`${D.runs.length} runs total`} />
+        <Metric label={t("execution.overview.passRate")} value={passRate} delta={t("execution.overview.ofLibrary")} />
+        <Metric label={t("execution.overview.openDefects")} value={openDefects} delta={defectDelta} />
+        <Metric label={t("execution.overview.totalTests")} value={totalTests} delta={t("execution.overview.automated", { rate: automationRate })} up sub={t("execution.overview.inLibrary")} />
+        <Metric label={t("execution.overview.activeRunsLabel")} value={String(activeRuns)} delta={t("execution.overview.runsTotal", { count: D.runs.length })} />
       </div>
 
       <RequirementCoverageCard requirements={D.requirements || []} onNav={onNav} />
@@ -100,9 +101,9 @@ function Overview({ onNav, onOpenTest, onOpenRun, onOpenDefect, currentUser }) {
         <div className="card">
           <div className="card-h">
             <div>
-              <div className="card-title">Test health</div>
+              <div className="card-title">{t("execution.overview.testHealth")}</div>
               <div className="card-sub">
-                {health ? `Last 14 days · ${health.total_runs} run${health.total_runs === 1 ? "" : "s"}` : "Last 14 days"}
+                {health ? t(health.total_runs === 1 ? "execution.overview.last14DaysRun" : "execution.overview.last14DaysRuns", { count: health.total_runs }) : t("execution.overview.last14Days")}
               </div>
             </div>
             <div className="spacer" />
@@ -111,10 +112,10 @@ function Overview({ onNav, onOpenTest, onOpenRun, onOpenDefect, currentUser }) {
             <HealthChart health={health} />
             {health && (
               <div style={{display:"flex", gap:18, marginTop:12, fontSize:11.5}}>
-                <Legend color="var(--pass)" label="passed" value={health.totals.passed.toLocaleString()} />
-                <Legend color="var(--fail)" label="failed" value={health.totals.failed.toLocaleString()} />
-                <Legend color="var(--warn)" label="blocked" value={health.totals.blocked.toLocaleString()} />
-                <Legend color="var(--skip)" label="skipped" value={health.totals.skipped.toLocaleString()} />
+                <Legend color="var(--pass)" label={t("execution.overview.passed")} value={health.totals.passed.toLocaleString(lang)} />
+                <Legend color="var(--fail)" label={t("execution.overview.failed")} value={health.totals.failed.toLocaleString(lang)} />
+                <Legend color="var(--warn)" label={t("execution.overview.blocked")} value={health.totals.blocked.toLocaleString(lang)} />
+                <Legend color="var(--skip)" label={t("execution.overview.skipped")} value={health.totals.skipped.toLocaleString(lang)} />
               </div>
             )}
           </div>
@@ -128,19 +129,19 @@ function Overview({ onNav, onOpenTest, onOpenRun, onOpenDefect, currentUser }) {
         {/* Active runs */}
         <div className="card">
           <div className="card-h">
-            <div className="card-title">Active & recent runs</div>
+            <div className="card-title">{t("execution.overview.activeRecentRuns")}</div>
             <div className="spacer" />
-            <button className="btn sm ghost" onClick={() => onNav("runs")}>View all <Icon name="chev" /></button>
+            <button className="btn sm ghost" onClick={() => onNav("runs")}>{t("execution.overview.viewAll")} <Icon name="chev" /></button>
           </div>
           <table className="table">
             <thead>
               <tr>
-                <th style={{width:90}}>Run</th>
-                <th>Plan</th>
-                <th style={{width:200}}>Progress</th>
-                <th style={{width:90}}>Status</th>
-                <th style={{width:80}}>Owner</th>
-                <th style={{width:80}}>Started</th>
+                <th style={{width:90}}>{t("execution.overview.run")}</th>
+                <th>{t("execution.overview.plan")}</th>
+                <th style={{width:200}}>{t("execution.overview.progress")}</th>
+                <th style={{width:90}}>{t("execution.overview.status")}</th>
+                <th style={{width:80}}>{t("execution.overview.owner")}</th>
+                <th style={{width:80}}>{t("execution.overview.started")}</th>
               </tr>
             </thead>
             <tbody>
@@ -153,11 +154,11 @@ function Overview({ onNav, onOpenTest, onOpenRun, onOpenDefect, currentUser }) {
                   </td>
                   <td>
                     <ProgressBar run={r} />
-                    <div className="mono dim" style={{fontSize:10.5, marginTop:3}}>{r.passed}/{r.total} passed</div>
+                    <div className="mono dim" style={{fontSize:10.5, marginTop:3}}>{r.passed}/{r.total} {t("execution.overview.passed")}</div>
                   </td>
                   <td><StatusBadge s={r.status} /></td>
                   <td className="mono dim">{r.owner}</td>
-                  <td className="mono dim">{r.created_at ? timeAgo(r.created_at) : r.started}</td>
+                  <td className="mono dim">{r.created_at ? timeAgo(r.created_at, lang, t) : r.started}</td>
                 </tr>
               ))}
             </tbody>
@@ -167,11 +168,11 @@ function Overview({ onNav, onOpenTest, onOpenRun, onOpenDefect, currentUser }) {
         {/* Activity */}
         <div className="card">
           <div className="card-h">
-            <div className="card-title">Activity</div>
+            <div className="card-title">{t("execution.overview.activity")}</div>
             <div className="spacer" />
           </div>
           <div style={{padding:"4px 0"}}>
-            {D.activity.length === 0 && <div className="empty" style={{padding:"20px 14px"}}>No activity yet.</div>}
+            {D.activity.length === 0 && <div className="empty" style={{padding:"20px 14px"}}>{t("execution.overview.noActivity")}</div>}
             {D.activity.map((a, i) => (
               <div key={i} style={{display:"flex", gap:10, padding:"10px 14px", borderBottom: i < D.activity.length-1 ? "1px solid var(--border)" : "none"}}>
                 <div className="avatar" style={{
@@ -184,14 +185,14 @@ function Overview({ onNav, onOpenTest, onOpenRun, onOpenDefect, currentUser }) {
                       const open = targetOpener(a.target);
                       return open
                         ? <a className="mono" style={{color:"var(--accent)", cursor:"pointer", textDecoration:"underline"}}
-                             title={`Open ${a.target}`}
+                             title={t("execution.overview.openTarget", { target: a.target })}
                              onClick={() => open(a.target)}>{a.target}</a>
                         : <span className="mono" style={{color:"var(--accent)"}}>{a.target}</span>;
                     })()}
                   </div>
                   <div style={{fontSize:11.5, color:"var(--text-dim)", marginTop:2}}>{a.detail}</div>
                 </div>
-                <div className="mono dim" style={{fontSize:10.5, flexShrink:0}}>{a.created_at ? timeAgo(a.created_at) : a.when}</div>
+                <div className="mono dim" style={{fontSize:10.5, flexShrink:0}}>{a.created_at ? timeAgo(a.created_at, lang, t) : a.when}</div>
               </div>
             ))}
           </div>
@@ -204,6 +205,7 @@ function Overview({ onNav, onOpenTest, onOpenRun, onOpenDefect, currentUser }) {
 // Compact AI coverage widget — analyzes a folder's tests via /api/ai/suggest-edge-cases
 // and can create pending draft tests from the suggestions.
 function AiSuggestBox({ D, folderId: fixedFolderId, onClose }) {
+  const { t } = useI18n();
   // Map every folder id → leaf name and → full ancestor path across the whole
   // tree (any depth). Imported folders nest several levels deep and reuse leaf
   // names (many "extra.spec.ts"), so the picker shows the full path to
@@ -268,7 +270,7 @@ function AiSuggestBox({ D, folderId: fixedFolderId, onClose }) {
       }
       setCreatedCount(n);
     } catch (e) {
-      setErr(n > 0 ? `Created ${n} draft${n === 1 ? "" : "s"}, then failed: ${e.message}` : e.message);
+      setErr(n > 0 ? t("execution.overview.createdThenFailed", { count: n, error: e.message }) : e.message);
       setCreatedCount(n);
     } finally {
       setCreating(false);
@@ -280,17 +282,17 @@ function AiSuggestBox({ D, folderId: fixedFolderId, onClose }) {
   return (
     <div className="ai-box">
       <div style={{display:"flex", alignItems:"center", gap:8, marginBottom:10}}>
-        <span style={{fontSize:11, fontFamily:"var(--font-mono)", textTransform:"uppercase", letterSpacing:"0.08em", color:"var(--purple)"}}>AI assistant</span>
-        {onClose && <button className="btn ghost icon sm" style={{marginLeft:"auto"}} onClick={onClose} aria-label="Close"><Icon name="x" /></button>}
+        <span style={{fontSize:11, fontFamily:"var(--font-mono)", textTransform:"uppercase", letterSpacing:"0.08em", color:"var(--purple)"}}>{t("execution.overview.aiAssistant")}</span>
+        {onClose && <button className="btn ghost icon sm" style={{marginLeft:"auto"}} onClick={onClose} aria-label={t("execution.overview.close")}><Icon name="x" /></button>}
       </div>
 
       {!result && (
         <>
-          <div style={{fontSize:13, fontWeight:500, marginBottom:6}}>Find missing edge cases</div>
+          <div style={{fontSize:13, fontWeight:500, marginBottom:6}}>{t("execution.overview.findEdgeCases")}</div>
           <div style={{fontSize:12, color:"var(--text-muted)", lineHeight:1.5, marginBottom:10}}>
             {fixedFolderId
-              ? "AI compares this folder's existing tests and suggests uncovered edge cases."
-              : "Pick a folder — AI compares its existing tests and suggests uncovered edge cases."}
+              ? t("execution.overview.aiFolderDescription")
+              : t("execution.overview.aiPickFolderDescription")}
           </div>
           <div style={{display:"flex", gap:6, alignItems:"center"}}>
             {fixedFolderId ? (
@@ -305,7 +307,7 @@ function AiSuggestBox({ D, folderId: fixedFolderId, onClose }) {
             )}
             <button className="btn sm" style={{background:"var(--purple)", borderColor:"var(--purple)", color:"oklch(0.16 0 0)"}}
               onClick={analyze} disabled={loading || !folderId}>
-              {loading ? "Analyzing…" : "Analyze"}
+              {loading ? t("execution.overview.analyzing") : t("execution.overview.analyze")}
             </button>
           </div>
         </>
@@ -314,10 +316,10 @@ function AiSuggestBox({ D, folderId: fixedFolderId, onClose }) {
       {result && (
         <>
           <div style={{fontSize:13, fontWeight:500, marginBottom:6}}>
-            {suggestions.length} missing edge case{suggestions.length === 1 ? "" : "s"} in {folderNames[folderId] || folderId}
+            {t(suggestions.length === 1 ? "execution.overview.missingEdgeCaseOne" : "execution.overview.missingEdgeCases", { count: suggestions.length, folder: folderNames[folderId] || folderId })}
           </div>
           {suggestions.length === 0 && (
-            <div style={{fontSize:12, color:"var(--text-muted)", lineHeight:1.5}}>No gaps found — coverage looks solid.</div>
+            <div style={{fontSize:12, color:"var(--text-muted)", lineHeight:1.5}}>{t("execution.overview.noGaps")}</div>
           )}
           <div style={{margin:"10px 0 12px", display:"flex", flexDirection:"column", gap:6}}>
             {suggestions.map((s, i) => {
@@ -342,13 +344,13 @@ function AiSuggestBox({ D, folderId: fixedFolderId, onClose }) {
             {suggestions.length > 0 && createdCount === 0 && (
               <button className="btn sm" style={{background:"var(--purple)", borderColor:"var(--purple)", color:"oklch(0.16 0 0)"}}
                 onClick={generateDrafts} disabled={creating || selected.size === 0}>
-                {creating ? "Creating…" : `Create ${selected.size} selected`}
+                {creating ? t("execution.runs.creating") : t("execution.overview.createSelected", { count: selected.size })}
               </button>
             )}
             {createdCount > 0 && (
-              <span style={{fontSize:12, color:"var(--pass)", alignSelf:"center"}}>✓ Created {createdCount} draft{createdCount === 1 ? "" : "s"}</span>
+              <span style={{fontSize:12, color:"var(--pass)", alignSelf:"center"}}>✓ {t(createdCount === 1 ? "execution.overview.createdDraftOne" : "execution.overview.createdDrafts", { count: createdCount })}</span>
             )}
-            <button className="btn sm" onClick={() => { setResult(null); setErr(null); setCreatedCount(0); }}>Dismiss</button>
+            <button className="btn sm" onClick={() => { setResult(null); setErr(null); setCreatedCount(0); }}>{t("execution.overview.dismiss")}</button>
           </div>
         </>
       )}
@@ -359,6 +361,7 @@ function AiSuggestBox({ D, folderId: fixedFolderId, onClose }) {
 }
 
 function RequirementCoverageCard({ requirements, onNav }) {
+  const { t } = useI18n();
   if (!requirements || requirements.length === 0) return null;
   const total = requirements.length;
   const covered = requirements.filter(r => r.coverage && r.coverage.linked > 0).length;
@@ -370,8 +373,8 @@ function RequirementCoverageCard({ requirements, onNav }) {
     <div className="card" style={{marginBottom:14, cursor:"pointer"}} {...clickable(() => onNav && onNav("requirements"))}>
       <div className="card-h">
         <div>
-          <div className="card-title">Requirement coverage</div>
-          <div className="card-sub">{covered} of {total} requirements have at least one test</div>
+          <div className="card-title">{t("execution.overview.requirementCoverage")}</div>
+          <div className="card-sub">{t("execution.overview.requirementsCovered", { covered, total })}</div>
         </div>
         <div className="card-title" style={{fontSize:22, color: coveredPct === 100 ? "var(--pass)" : coveredPct >= 60 ? "var(--warn)" : "var(--fail)"}}>{coveredPct}%</div>
       </div>
@@ -381,9 +384,9 @@ function RequirementCoverageCard({ requirements, onNav }) {
           {uncovered > 0 && <div style={{width:`${(uncovered/total)*100}%`, background:"var(--text-dim)"}} />}
         </div>
         <div style={{display:"flex", gap:18}}>
-          <Legend color="var(--pass)" label="Covered" value={covered} />
-          <Legend color="var(--text-dim)" label="Uncovered" value={uncovered} />
-          <Legend color="var(--fail)" label="At risk (failing)" value={atRisk} />
+          <Legend color="var(--pass)" label={t("execution.overview.covered")} value={covered} />
+          <Legend color="var(--text-dim)" label={t("execution.overview.uncovered")} value={uncovered} />
+          <Legend color="var(--fail)" label={t("execution.overview.atRisk")} value={atRisk} />
         </div>
       </div>
     </div>
@@ -414,12 +417,19 @@ function Legend({color, label, value}) {
 }
 
 function StatusBadge({s}) {
-  if (s === "running") return <span className="status info">RUNNING</span>;
-  if (s === "pass") return <span className="status pass">PASS</span>;
-  if (s === "fail") return <span className="status fail">FAIL</span>;
-  if (s === "warn" || s === "blocked") return <span className="status warn">BLOCKED</span>;
-  if (s === "skip") return <span className="status skip">SKIP</span>;
-  if (s === "pending") return <span className="status skip">PENDING</span>;
+  const { t } = useI18n();
+  if (s === "running") return <span className="status info">{t("execution.overview.statusRunning")}</span>;
+  if (s === "pass") return <span className="status pass">{t("execution.overview.statusPass")}</span>;
+  if (s === "fail") return <span className="status fail">{t("execution.overview.statusFail")}</span>;
+  if (s === "warn" || s === "blocked") return <span className="status warn">{t("execution.overview.statusBlocked")}</span>;
+  if (s === "skip") return <span className="status skip">{t("execution.overview.statusSkip")}</span>;
+  if (s === "pending") return <span className="status skip">{t("execution.overview.statusPending")}</span>;
+  if (s === "paused") return <span className="status warn">{t("execution.overview.statusPaused")}</span>;
+  if (s === "aborted") return <span className="status fail">{t("execution.overview.statusAborted")}</span>;
+  if (s === "completed") return <span className="status pass">{t("execution.overview.statusCompleted")}</span>;
+  if (s === "open") return <span className="status fail">{t("execution.overview.statusOpen")}</span>;
+  if (s === "resolved") return <span className="status pass">{t("execution.overview.statusResolved")}</span>;
+  if (s === "closed") return <span className="status pass">{t("execution.overview.statusClosed")}</span>;
   return <span className="status">{s}</span>;
 }
 
@@ -441,10 +451,11 @@ function ProgressBar({run}) {
 }
 
 function HealthChart({ health }) {
-  if (!health) return <div className="empty" style={{height:140, display:"flex", alignItems:"center", justifyContent:"center"}}>Loading…</div>;
+  const { t, lang } = useI18n();
+  if (!health) return <div className="empty" style={{height:140, display:"flex", alignItems:"center", justifyContent:"center"}}>{t("execution.overview.loadingChart")}</div>;
   const days = health.days || [];
   if (health.total_runs === 0) {
-    return <div className="empty" style={{height:140, display:"flex", alignItems:"center", justifyContent:"center"}}>No runs in the last 14 days.</div>;
+    return <div className="empty" style={{height:140, display:"flex", alignItems:"center", justifyContent:"center"}}>{t("execution.overview.noRecentRuns")}</div>;
   }
   const max = Math.max(...days.map(d => d.passed + d.failed + d.blocked + d.skipped), 1);
   return (
@@ -453,7 +464,7 @@ function HealthChart({ health }) {
         const sum = d.passed + d.failed + d.blocked + d.skipped;
         const h = (sum/max)*100;
         return (
-          <div key={d.date} title={`${d.date} — ${d.passed} passed, ${d.failed} failed, ${d.blocked} blocked, ${d.skipped} skipped`}
+          <div key={d.date} title={t("execution.overview.chartTitle", { date: lang === "ru" ? new Date(`${d.date}T00:00:00`).toLocaleDateString(lang) : d.date, passed: d.passed, failed: d.failed, blocked: d.blocked, skipped: d.skipped })}
             style={{flex:1, display:"flex", flexDirection:"column-reverse", height:`${Math.max(h, sum > 0 ? 3 : 0)}%`, minWidth:0, gap:1}}>
             {d.passed > 0 && <div style={{background:"var(--pass)", flex: d.passed, borderRadius:"2px 2px 0 0"}} />}
             {d.failed > 0 && <div style={{background:"var(--fail)", flex: d.failed}} />}

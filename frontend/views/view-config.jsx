@@ -14,10 +14,15 @@ const PROVIDERS = [
 ];
 
 const TYPE_LABELS = {
-  vcs_ci: "VCS + CI", ci: "CI", runner: "Runner",
-  defects: "Defects", issue_tracker: "Issue tracker",
-  notifications: "Notifications", outbound: "Outbound",
+  vcs_ci: "config.types.vcsCi", ci: "config.types.ci", runner: "config.types.runner",
+  defects: "config.types.defects", issue_tracker: "config.types.issueTracker",
+  notifications: "config.types.notifications", outbound: "config.types.outbound",
 };
+
+function formatConfigDate(value, lang, options = { dateStyle: "medium", timeStyle: "short" }) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(lang, options).format(date);
+}
 
 const WEBHOOK_EVENTS = ["run.completed", "run.failed", "defect.created", "defect.updated"];
 
@@ -32,48 +37,49 @@ const MODAL_BOX = {
 };
 
 function VcsConfigFields({ form, setForm, tokenSet, provider = "github" }) {
+  const { t } = useI18n();
   const fld = { marginBottom:12 };
   const lbl = { display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6 };
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   const isGitlab = provider === "gitlab";
   const repoPlaceholder = isGitlab ? "https://gitlab.com/group/repo" : "https://github.com/org/repo";
-  const tokenHint = tokenSet ? "(leave blank to keep current)"
-    : isGitlab ? "(private repos + Run CI need the api scope)"
-               : "(private repos + Run CI need the actions scope)";
+  const tokenHint = tokenSet ? t("config.fields.keepTokenHint")
+    : isGitlab ? t("config.fields.gitlabTokenHint")
+               : t("config.fields.githubTokenHint");
   const tokenPlaceholder = tokenSet ? "••••••••" : isGitlab ? "glpat-…" : "ghp_…";
   return (
     <>
       <div style={fld}>
-        <label style={lbl}>Repository URL</label>
+        <label style={lbl}>{t("config.fields.repositoryUrl")}</label>
         <input className="login-input" value={form.repo_url} onChange={set("repo_url")} placeholder={repoPlaceholder} style={{width:"100%"}} />
       </div>
       <div style={{display:"flex", gap:8}}>
         <div style={{...fld, flex:1}}>
-          <label style={lbl}>Branch</label>
+          <label style={lbl}>{t("config.fields.branch")}</label>
           <input className="login-input" value={form.branch} onChange={set("branch")} placeholder="main" style={{width:"100%"}} />
         </div>
         <div style={{...fld, flex:2}}>
-          <label style={lbl}>Path (folder of YAML tests)</label>
+          <label style={lbl}>{t("config.fields.testPath")}</label>
           <input className="login-input" value={form.path} onChange={set("path")} placeholder="tests/" style={{width:"100%"}} />
         </div>
       </div>
       <div style={fld}>
-        <label style={lbl}>Personal access token {tokenHint}</label>
+        <label style={lbl}>{t("config.fields.personalToken")} {tokenHint}</label>
         <input className="login-input" type="password" value={form.token} onChange={set("token")} placeholder={tokenPlaceholder} autoComplete="off" style={{width:"100%"}} />
       </div>
       {isGitlab ? (
         <div style={fld}>
-          <label style={lbl}>API base URL (self-hosted only — leave blank for gitlab.com)</label>
+          <label style={lbl}>{t("config.fields.gitlabApiBase")}</label>
           <input className="login-input" value={form.api_base || ""} onChange={set("api_base")} placeholder="http://localhost:8929/api/v4" style={{width:"100%"}} />
         </div>
       ) : (
         <div style={{display:"flex", gap:8}}>
           <div style={{...fld, flex:1}}>
-            <label style={lbl}>Workflow (for Run CI)</label>
+            <label style={lbl}>{t("config.fields.workflow")}</label>
             <input className="login-input" value={form.workflow || ""} onChange={set("workflow")} placeholder="ci.yml" style={{width:"100%"}} />
           </div>
           <div style={{...fld, flex:1}}>
-            <label style={lbl}>JUnit artifact name</label>
+            <label style={lbl}>{t("config.fields.junitArtifact")}</label>
             <input className="login-input" value={form.junit_artifact || ""} onChange={set("junit_artifact")} placeholder="junit" style={{width:"100%"}} />
           </div>
         </div>
@@ -83,31 +89,32 @@ function VcsConfigFields({ form, setForm, tokenSet, provider = "github" }) {
 }
 
 function JiraConfigFields({ form, setForm, tokenSet }) {
+  const { t } = useI18n();
   const fld = { marginBottom:12 };
   const lbl = { display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6 };
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
   return (
     <>
       <div style={fld}>
-        <label style={lbl}>Jira base URL</label>
+        <label style={lbl}>{t("config.fields.jiraBaseUrl")}</label>
         <input className="login-input" value={form.base_url} onChange={set("base_url")} placeholder="https://your-org.atlassian.net" style={{width:"100%"}} />
       </div>
       <div style={{display:"flex", gap:8}}>
         <div style={{...fld, flex:2}}>
-          <label style={lbl}>Account email</label>
+          <label style={lbl}>{t("config.fields.accountEmail")}</label>
           <input className="login-input" value={form.email} onChange={set("email")} placeholder="you@example.com" style={{width:"100%"}} />
         </div>
         <div style={{...fld, flex:1}}>
-          <label style={lbl}>Project key</label>
+          <label style={lbl}>{t("config.fields.projectKey")}</label>
           <input className="login-input" value={form.project_key} onChange={set("project_key")} placeholder="PAY" style={{width:"100%"}} />
         </div>
       </div>
       <div style={fld}>
-        <label style={lbl}>API token {tokenSet ? "(leave blank to keep current)" : ""}</label>
+        <label style={lbl}>{t("config.fields.apiToken")} {tokenSet ? t("config.fields.keepTokenHint") : ""}</label>
         <input className="login-input" type="password" value={form.api_token} onChange={set("api_token")} placeholder={tokenSet ? "••••••••" : "Atlassian API token"} autoComplete="off" style={{width:"100%"}} />
       </div>
       <div style={fld}>
-        <label style={lbl}>Bug issue type</label>
+        <label style={lbl}>{t("config.fields.bugIssueType")}</label>
         <input className="login-input" value={form.issue_type_bug} onChange={set("issue_type_bug")} placeholder="Bug" style={{width:"100%"}} />
       </div>
     </>
@@ -115,6 +122,7 @@ function JiraConfigFields({ form, setForm, tokenSet }) {
 }
 
 function IntRow({ intg, onEdit, onDelete, onSync }) {
+  const { t, lang } = useI18n();
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [syncing, setSyncing] = React.useState(false);
   const [syncMsg, setSyncMsg] = React.useState(null);
@@ -128,14 +136,14 @@ function IntRow({ intg, onEdit, onDelete, onSync }) {
     setSyncing(true); setSyncMsg(null);
     try {
       const r = await onSync(intg);
-      setSyncMsg({ ok: true, text: `${r.created} new · ${r.updated} updated` + (r.skipped ? ` · ${r.skipped} skipped` : "") });
+      setSyncMsg({ ok: true, key: r.skipped ? "config.sync.successWithSkipped" : "config.sync.success", params: { created: r.created, updated: r.updated, skipped: r.skipped || 0 } });
     } catch (e) {
       setSyncMsg({ ok: false, text: e.message });
     } finally { setSyncing(false); }
   };
 
   const doCI = async () => {
-    setCiBusy(true); setCiMsg({ ok: true, text: "dispatching…" });
+    setCiBusy(true); setCiMsg({ ok: true, key: "config.ci.dispatching" });
     try {
       const { job_id } = await window.TH_API.ciRun(intg.id, {});
       // Poll the background job until it finishes.
@@ -145,11 +153,12 @@ function IntRow({ intg, onEdit, onDelete, onSync }) {
         const job = await window.TH_API.ciJobStatus(intg.id, job_id);
         if (job.status === "done") {
           const s = job.imported || {};
-          setCiMsg({ ok: true, text: `imported ${s.tests || 0} tests · ${s.runs || 0} run` });
+          setCiMsg({ ok: true, key: "config.ci.imported", params: { tests: s.tests || 0, runs: s.runs || 0 } });
           break;
         }
-        if (job.status === "error") { setCiMsg({ ok: false, text: job.error || "CI run failed" }); break; }
-        setCiMsg({ ok: true, text: job.status.replace("_", " ") + "…" });
+        if (job.status === "error") { setCiMsg({ ok: false, text: job.error || t("config.ci.failed") }); break; }
+        const statusKey = `config.ci.status.${job.status}`;
+        setCiMsg({ ok: true, key: statusKey, fallback: `${job.status.replace("_", " ")}…` });
       }
     } catch (e) {
       setCiMsg({ ok: false, text: e.message });
@@ -171,7 +180,7 @@ function IntRow({ intg, onEdit, onDelete, onSync }) {
           {intg.name}
         </div>
       </td>
-      <td className="mono dim">{TYPE_LABELS[intg.type] || intg.type}</td>
+      <td className="mono dim">{TYPE_LABELS[intg.type] ? t(TYPE_LABELS[intg.type]) : intg.type}</td>
       <td>
         {intg.status === "active" ? <StatusBadge s="pass" /> :
          intg.status === "error"  ? <StatusBadge s="fail" /> :
@@ -179,19 +188,19 @@ function IntRow({ intg, onEdit, onDelete, onSync }) {
       </td>
       <td className="mono dim">{intg.configured_by || "—"}</td>
       <td className="mono dim">
-        {intg.last_sync || "—"}
-        {syncMsg && <div style={{fontSize:10.5, color: syncMsg.ok ? "var(--pass)" : "var(--fail)"}}>{syncMsg.text}</div>}
-        {ciMsg && <div style={{fontSize:10.5, color: ciMsg.ok ? "var(--accent)" : "var(--fail)"}}>CI: {ciMsg.text}</div>}
+        {intg.last_sync ? formatConfigDate(intg.last_sync, lang) : "—"}
+        {syncMsg && <div style={{fontSize:10.5, color: syncMsg.ok ? "var(--pass)" : "var(--fail)"}}>{syncMsg.key ? t(syncMsg.key, syncMsg.params) : syncMsg.text}</div>}
+        {ciMsg && <div style={{fontSize:10.5, color: ciMsg.ok ? "var(--accent)" : "var(--fail)"}}>CI: {ciMsg.key ? (t(ciMsg.key) === ciMsg.key ? ciMsg.fallback : t(ciMsg.key, ciMsg.params)) : ciMsg.text}</div>}
       </td>
       <td style={{position:"relative", textAlign:"right", whiteSpace:"nowrap"}} ref={menuRef}>
         {isVcs && (
-          <button className="btn sm" style={{marginRight:6}} disabled={ciBusy} onClick={doCI} title="Trigger the CI pipeline and import its results">
-            {ciBusy ? "Running…" : "Run CI"}
+          <button className="btn sm" style={{marginRight:6}} disabled={ciBusy} onClick={doCI} title={t("config.ci.triggerTitle")}>
+            {ciBusy ? t("config.ci.running") : t("config.ci.run")}
           </button>
         )}
         {canSync && (
           <button className="btn sm" style={{marginRight:6}} disabled={syncing} onClick={doSync}>
-            {syncing ? "Syncing…" : "Sync"}
+            {syncing ? t("config.sync.syncing") : t("config.sync.sync")}
           </button>
         )}
         <button className="btn ghost icon sm" onClick={() => setMenuOpen(o => !o)}><Icon name="more" /></button>
@@ -204,11 +213,11 @@ function IntRow({ intg, onEdit, onDelete, onSync }) {
             <button
               style={{display:"block", width:"100%", textAlign:"left", padding:"8px 14px", fontSize:12, border:"none", background:"none", cursor:"pointer", color:"var(--text)"}}
               onClick={() => { setMenuOpen(false); onEdit(intg); }}
-            >Edit</button>
+            >{t("config.actions.edit")}</button>
             <button
               style={{display:"block", width:"100%", textAlign:"left", padding:"8px 14px", fontSize:12, border:"none", background:"none", cursor:"pointer", color:"var(--fail)"}}
               onClick={() => { setMenuOpen(false); onDelete(intg); }}
-            >Disconnect</button>
+            >{t("config.actions.disconnect")}</button>
           </div>
         )}
       </td>
@@ -225,6 +234,7 @@ function useEscapeClose(onClose) {
 }
 
 function AddIntegrationModal({ onClose, onSaved, existingIds }) {
+  const { t } = useI18n();
   const [step, setStep] = React.useState("pick");
   const [provider, setProvider] = React.useState(null);
   const [form, setForm] = React.useState({ configured_by: "" });
@@ -288,8 +298,8 @@ function AddIntegrationModal({ onClose, onSaved, existingIds }) {
       <div style={MODAL_BOX}>
         {step === "pick" ? (
           <>
-            <div style={{fontWeight:600, fontSize:14, marginBottom:4}}>Add integration</div>
-            <div style={{fontSize:12, color:"var(--text-muted)", marginBottom:16}}>Choose a provider to connect.</div>
+            <div style={{fontWeight:600, fontSize:14, marginBottom:4}}>{t("config.integration.addTitle")}</div>
+            <div style={{fontSize:12, color:"var(--text-muted)", marginBottom:16}}>{t("config.integration.chooseProvider")}</div>
             <div style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:8, marginBottom:16}}>
               {PROVIDERS.filter(p => !existingIds.includes(`int-${p.id}`)).map(p => (
                 <button
@@ -305,23 +315,23 @@ function AddIntegrationModal({ onClose, onSaved, existingIds }) {
                 >
                   <span style={{display:"inline-flex", width:20, height:20, color:"var(--text-muted)"}}>{I[p.icon] || I.plug}</span>
                   <span style={{fontSize:12, fontWeight:500}}>{p.name}</span>
-                  <span style={{fontSize:10, color:"var(--text-dim)"}}>{TYPE_LABELS[p.type]}</span>
+                  <span style={{fontSize:10, color:"var(--text-dim)"}}>{t(TYPE_LABELS[p.type])}</span>
                 </button>
               ))}
             </div>
-            <button className="btn" onClick={onClose}>Cancel</button>
+            <button className="btn" onClick={onClose}>{t("config.actions.cancel")}</button>
           </>
         ) : (
           <>
-            <div style={{fontWeight:600, fontSize:14, marginBottom:4}}>Configure {provider.name}</div>
-            <div style={{fontSize:12, color:"var(--text-muted)", marginBottom:16}}>Type: {TYPE_LABELS[provider.type]}</div>
+            <div style={{fontWeight:600, fontSize:14, marginBottom:4}}>{t("config.integration.configure", { name: provider.name })}</div>
+            <div style={{fontSize:12, color:"var(--text-muted)", marginBottom:16}}>{t("config.integration.type", { type: t(TYPE_LABELS[provider.type]) })}</div>
             <div style={{marginBottom:14}}>
-              <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}}>Configured by</label>
+              <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}}>{t("config.fields.configuredBy")}</label>
               <input
                 className="login-input"
                 value={form.configured_by}
                 onChange={e => setForm(f => ({...f, configured_by: e.target.value}))}
-                placeholder="e.g. org/repo · main"
+                placeholder={t("config.fields.configuredByPlaceholder")}
                 style={{width:"100%"}}
               />
             </div>
@@ -329,8 +339,8 @@ function AddIntegrationModal({ onClose, onSaved, existingIds }) {
             {isJira && <JiraConfigFields form={form} setForm={setForm} tokenSet={false} />}
             {err && <div style={{fontSize:12, color:"var(--fail)", marginBottom:8}}>{err}</div>}
             <div style={{display:"flex", gap:8}}>
-              <button className="btn primary" onClick={save} disabled={saving}>{saving ? "Connecting…" : "Connect"}</button>
-              <button className="btn" onClick={() => setStep("pick")}>Back</button>
+              <button className="btn primary" onClick={save} disabled={saving}>{saving ? t("config.integration.connecting") : t("config.integration.connect")}</button>
+              <button className="btn" onClick={() => setStep("pick")}>{t("config.actions.back")}</button>
             </div>
           </>
         )}
@@ -340,6 +350,7 @@ function AddIntegrationModal({ onClose, onSaved, existingIds }) {
 }
 
 function EditIntegrationModal({ intg, onClose, onSaved }) {
+  const { t } = useI18n();
   useEscapeClose(onClose);
   const cfg = intg.config || {};
   const isJira = intg.type === "jira";
@@ -398,29 +409,29 @@ function EditIntegrationModal({ intg, onClose, onSaved }) {
   return (
     <div style={MODAL_OVERLAY} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={MODAL_BOX}>
-        <div style={{fontWeight:600, fontSize:14, marginBottom:16}}>Edit integration</div>
+        <div style={{fontWeight:600, fontSize:14, marginBottom:16}}>{t("config.integration.editTitle")}</div>
         <div style={{marginBottom:12}}>
-          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}}>Name</label>
+          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}}>{t("config.fields.name")}</label>
           <input className="login-input" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} style={{width:"100%"}} />
         </div>
         <div style={{marginBottom:12}}>
-          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}}>Configured by</label>
-          <input className="login-input" value={form.configured_by} onChange={e => setForm(f => ({...f, configured_by: e.target.value}))} style={{width:"100%"}} placeholder="e.g. org/repo · main" />
+          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}}>{t("config.fields.configuredBy")}</label>
+          <input className="login-input" value={form.configured_by} onChange={e => setForm(f => ({...f, configured_by: e.target.value}))} style={{width:"100%"}} placeholder={t("config.fields.configuredByPlaceholder")} />
         </div>
         <div style={{marginBottom:16}}>
-          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}}>Status</label>
+          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}}>{t("config.fields.status")}</label>
           <select className="select" value={form.status} onChange={e => setForm(f => ({...f, status: e.target.value}))}>
-            <option value="active">Active</option>
-            <option value="disabled">Disabled</option>
-            <option value="error">Error</option>
+            <option value="active">{t("config.status.active")}</option>
+            <option value="disabled">{t("config.status.disabled")}</option>
+            <option value="error">{t("config.status.error")}</option>
           </select>
         </div>
         {isVcs && <VcsConfigFields form={form} setForm={setForm} tokenSet={tokenSet} provider={providerId} />}
         {isJira && <JiraConfigFields form={form} setForm={setForm} tokenSet={apiTokenSet} />}
         {err && <div style={{fontSize:12, color:"var(--fail)", marginBottom:8}}>{err}</div>}
         <div style={{display:"flex", gap:8}}>
-          <button className="btn primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" onClick={save} disabled={saving}>{saving ? t("config.actions.saving") : t("config.actions.save")}</button>
+          <button className="btn" onClick={onClose}>{t("config.actions.cancel")}</button>
         </div>
       </div>
     </div>
@@ -428,6 +439,7 @@ function EditIntegrationModal({ intg, onClose, onSaved }) {
 }
 
 function CreateTokenModal({ onClose, onCreated }) {
+  const { t } = useI18n();
   useEscapeClose(onClose);
   // Scope is an enforced enum, not a free-form label: "read" restricts the
   // token to safe HTTP methods, "write" grants the creator's full role.
@@ -436,7 +448,7 @@ function CreateTokenModal({ onClose, onCreated }) {
   const [err, setErr] = React.useState(null);
 
   const save = async () => {
-    if (!form.name.trim()) { setErr("Name is required"); return; }
+    if (!form.name.trim()) { setErr(t("config.errors.nameRequired")); return; }
     setSaving(true); setErr(null);
     try {
       const created = await TH_API.createToken({ name: form.name.trim(), scope: form.scope });
@@ -448,26 +460,26 @@ function CreateTokenModal({ onClose, onCreated }) {
   return (
     <div style={MODAL_OVERLAY} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={MODAL_BOX}>
-        <div style={{fontWeight:600, fontSize:14, marginBottom:16}}>Generate API token</div>
+        <div style={{fontWeight:600, fontSize:14, marginBottom:16}}>{t("config.token.generateTitle")}</div>
         <div style={{marginBottom:12}}>
-          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}}>Token name</label>
-          <input className="login-input" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} placeholder="e.g. ci-runner" style={{width:"100%"}} />
+          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}}>{t("config.token.name")}</label>
+          <input className="login-input" value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))} placeholder={t("config.token.namePlaceholder")} style={{width:"100%"}} />
         </div>
         <div style={{marginBottom:16}}>
-          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}} htmlFor="token-scope">Scope</label>
+          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}} htmlFor="token-scope">{t("config.token.scope")}</label>
           <select id="token-scope" className="login-input" value={form.scope}
                   onChange={e => setForm(f => ({...f, scope: e.target.value}))} style={{width:"100%"}}>
-            <option value="write">Write — full access for your role</option>
-            <option value="read">Read only — GET requests only</option>
+            <option value="write">{t("config.token.writeOption")}</option>
+            <option value="read">{t("config.token.readOption")}</option>
           </select>
           <div style={{fontSize:11, color:"var(--text-dim)", marginTop:4}}>
-            The token acts as you, limited by this scope. It expires automatically; revoke it here at any time.
+            {t("config.token.scopeHint")}
           </div>
         </div>
         {err && <div style={{fontSize:12, color:"var(--fail)", marginBottom:8}}>{err}</div>}
         <div style={{display:"flex", gap:8}}>
-          <button className="btn primary" onClick={save} disabled={saving}>{saving ? "Generating…" : "Generate"}</button>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" onClick={save} disabled={saving}>{saving ? t("config.token.generating") : t("config.token.generate")}</button>
+          <button className="btn" onClick={onClose}>{t("config.actions.cancel")}</button>
         </div>
       </div>
     </div>
@@ -475,6 +487,7 @@ function CreateTokenModal({ onClose, onCreated }) {
 }
 
 function TokenRevealModal({ token, onClose }) {
+  const { t, lang } = useI18n();
   const [copied, setCopied] = React.useState(false);
   const copy = () => {
     navigator.clipboard.writeText(token.token).then(() => {
@@ -485,25 +498,26 @@ function TokenRevealModal({ token, onClose }) {
   return (
     <div style={MODAL_OVERLAY}>
       <div style={MODAL_BOX}>
-        <div style={{fontWeight:600, fontSize:14, marginBottom:4}}>Token created</div>
+        <div style={{fontWeight:600, fontSize:14, marginBottom:4}}>{t("config.token.created")}</div>
         <div style={{fontSize:12, color:"var(--warn)", marginBottom:16, padding:"8px 12px", background:"rgba(245,158,11,0.08)", borderRadius:6, border:"1px solid rgba(245,158,11,0.2)"}}>
-          Copy this token now — it won't be shown again.
+          {t("config.token.copyWarning")}
         </div>
         <div style={{display:"flex", gap:8, alignItems:"center", marginBottom:16}}>
           <code style={{flex:1, fontSize:11.5, fontFamily:"var(--font-mono)", padding:"8px 12px", background:"var(--bg-2)", borderRadius:6, border:"1px solid var(--border)", wordBreak:"break-all"}}>{token.token}</code>
-          <button className="btn sm" style={{flexShrink:0}} onClick={copy}>{copied ? "Copied!" : "Copy"}</button>
+          <button className="btn sm" style={{flexShrink:0}} onClick={copy}>{copied ? t("config.token.copied") : t("config.token.copy")}</button>
         </div>
         <div style={{fontSize:12, color:"var(--text-muted)", marginBottom:16}}>
-          <b>{token.name}</b> · scope: <span className="mono">{token.scope || "write"}</span>
-          {token.expires_at && <> · expires {String(token.expires_at).slice(0, 10)}</>}
+          <b>{token.name}</b> · {t("config.token.scope")}: <span className="mono">{token.scope === "read" ? t("config.token.read") : t("config.token.write")}</span>
+          {token.expires_at && <> · {t("config.token.expires", { date: formatConfigDate(token.expires_at, lang, { dateStyle: "medium" }) })}</>}
         </div>
-        <button className="btn primary" onClick={onClose}>Done</button>
+        <button className="btn primary" onClick={onClose}>{t("config.actions.done")}</button>
       </div>
     </div>
   );
 }
 
 function AddWebhookModal({ onClose, onSaved, existing }) {
+  const { t } = useI18n();
   useEscapeClose(onClose);
   const [form, setForm] = React.useState(
     existing ? { url: existing.url, events: existing.events || [] }
@@ -520,7 +534,7 @@ function AddWebhookModal({ onClose, onSaved, existing }) {
   };
 
   const save = async () => {
-    if (!form.url.trim()) { setErr("URL is required"); return; }
+    if (!form.url.trim()) { setErr(t("config.errors.urlRequired")); return; }
     setSaving(true); setErr(null);
     try {
       let saved;
@@ -537,13 +551,13 @@ function AddWebhookModal({ onClose, onSaved, existing }) {
   return (
     <div style={MODAL_OVERLAY} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={MODAL_BOX}>
-        <div style={{fontWeight:600, fontSize:14, marginBottom:16}}>{existing ? "Edit webhook" : "Add webhook"}</div>
+        <div style={{fontWeight:600, fontSize:14, marginBottom:16}}>{existing ? t("config.webhook.editTitle") : t("config.webhook.addTitle")}</div>
         <div style={{marginBottom:12}}>
-          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}}>Endpoint URL</label>
+          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:6}}>{t("config.webhook.endpointUrl")}</label>
           <input className="login-input" value={form.url} onChange={e => setForm(f => ({...f, url: e.target.value}))} placeholder="https://your-endpoint.example.com/hook" style={{width:"100%"}} />
         </div>
         <div style={{marginBottom:16}}>
-          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:8}}>Events</label>
+          <label style={{display:"block", fontSize:12, fontWeight:500, color:"var(--text-muted)", marginBottom:8}}>{t("config.webhook.events")}</label>
           <div style={{display:"flex", flexDirection:"column", gap:6}}>
             {WEBHOOK_EVENTS.map(ev => (
               <label key={ev} style={{display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontSize:12}}>
@@ -560,8 +574,8 @@ function AddWebhookModal({ onClose, onSaved, existing }) {
         </div>
         {err && <div style={{fontSize:12, color:"var(--fail)", marginBottom:8}}>{err}</div>}
         <div style={{display:"flex", gap:8}}>
-          <button className="btn primary" onClick={save} disabled={saving}>{saving ? "Saving…" : (existing ? "Save" : "Add webhook")}</button>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn primary" onClick={save} disabled={saving}>{saving ? t("config.actions.saving") : (existing ? t("config.actions.save") : t("config.webhook.addTitle"))}</button>
+          <button className="btn" onClick={onClose}>{t("config.actions.cancel")}</button>
         </div>
       </div>
     </div>
@@ -569,6 +583,7 @@ function AddWebhookModal({ onClose, onSaved, existing }) {
 }
 
 function Integrations() {
+  const { t, lang } = useI18n();
   const [integrations, setIntegrations] = React.useState([]);
   const [tokens, setTokens]             = React.useState([]);
   const [webhooks, setWebhooks]         = React.useState([]);
@@ -598,7 +613,7 @@ function Integrations() {
   }, []);
 
   const handleDeleteInt = async (intg) => {
-    if (!window.confirm(`Disconnect ${intg.name}?`)) return;
+    if (!window.confirm(t("config.confirm.disconnectIntegration", { name: intg.name }))) return;
     try {
       await TH_API.deleteIntegration(intg.id);
       setIntegrations(prev => prev.filter(i => i.id !== intg.id));
@@ -612,7 +627,7 @@ function Integrations() {
   };
 
   const handleRevokeToken = async (tok) => {
-    if (!window.confirm(`Revoke token "${tok.name}"?`)) return;
+    if (!window.confirm(t("config.confirm.revokeToken", { name: tok.name }))) return;
     try {
       await TH_API.revokeToken(tok.id);
       setTokens(prev => prev.filter(t => t.id !== tok.id));
@@ -620,7 +635,7 @@ function Integrations() {
   };
 
   const handleDeleteWebhook = async (wh) => {
-    if (!window.confirm("Delete this webhook?")) return;
+    if (!window.confirm(t("config.confirm.deleteWebhook"))) return;
     try {
       await TH_API.deleteWebhook(wh.id);
       setWebhooks(prev => prev.filter(w => w.id !== wh.id));
@@ -632,7 +647,7 @@ function Integrations() {
     try {
       const res = await TH_API.testWebhook(wh.id);
       setTestResults(prev => ({...prev, [wh.id]: res}));
-      setWebhooks(prev => prev.map(w => w.id === wh.id ? {...w, last_status_code: res.status_code, last_delivery_at: "just now"} : w));
+      setWebhooks(prev => prev.map(w => w.id === wh.id ? {...w, last_status_code: res.status_code, last_delivery_at: new Date().toISOString()} : w));
     } catch(e) {
       setTestResults(prev => ({...prev, [wh.id]: {ok: false, status_code: 0}}));
     } finally { setTestingWh(null); }
@@ -640,18 +655,18 @@ function Integrations() {
 
   const activeCount = integrations.filter(i => i.status === "active").length;
 
-  if (loading) return <div className="page fade-in"><div className="empty">Loading…</div></div>;
+  if (loading) return <div className="page fade-in"><div className="empty">{t("config.common.loading")}</div></div>;
   if (error)   return <div className="page fade-in"><div className="empty" style={{color:"var(--fail)"}}>{error}</div></div>;
 
   return (
     <div className="page fade-in">
       <div className="page-h">
         <div>
-          <h1 className="page-title">Integrations</h1>
-          <div className="page-sub">ThoroTest is configured as code — your <span className="mono">.thorotest/</span> directory is the source of truth.</div>
+          <h1 className="page-title">{t("config.integrations.title")}</h1>
+          <div className="page-sub">{t("config.integrations.subtitle")} <span className="mono">.thorotest/</span> {t("config.integrations.subtitleEnd")}</div>
         </div>
         <div className="actions">
-          <button className="btn accent" onClick={() => setAddIntOpen(true)}><Icon name="plus" /> Add integration</button>
+          <button className="btn accent" onClick={() => setAddIntOpen(true)}><Icon name="plus" /> {t("config.integration.addTitle")}</button>
         </div>
       </div>
 
@@ -660,7 +675,7 @@ function Integrations() {
           <div className="card-h">
             <div className="card-title">.thorotest/config.yml</div>
             <div className="spacer" />
-            <span className="status pass" style={{padding:"1px 6px"}}>SYNCED</span>
+            <span className="status pass" style={{padding:"1px 6px"}}>{t("config.integrations.synced")}</span>
           </div>
           <div style={{padding:14}}>
             <pre className="code">
@@ -689,7 +704,7 @@ function Integrations() {
           <div className="card-h">
             <div className="card-title">.github/workflows/thorotest.yml</div>
             <div className="spacer" />
-            <span className="status pass" style={{padding:"1px 6px"}}>ACTIVE</span>
+            <span className="status pass" style={{padding:"1px 6px"}}>{t("config.status.activeUpper")}</span>
           </div>
           <div style={{padding:14}}>
             <pre className="code">
@@ -712,15 +727,15 @@ function Integrations() {
 
       <div className="card" style={{marginBottom:14}}>
         <div className="card-h">
-          <div className="card-title">Connected integrations</div>
-          <div className="card-sub">{activeCount} active</div>
+          <div className="card-title">{t("config.integrations.connected")}</div>
+          <div className="card-sub">{t("config.integrations.activeCount", { count: activeCount })}</div>
         </div>
         {integrations.length === 0 ? (
-          <div className="empty" style={{padding:"24px 0"}}>No integrations yet. Add one above.</div>
+          <div className="empty" style={{padding:"24px 0"}}>{t("config.integrations.empty")}</div>
         ) : (
           <table className="table">
             <thead>
-              <tr><th>Integration</th><th>Type</th><th>Status</th><th>Configured by</th><th>Last sync</th><th style={{width:40}}></th></tr>
+              <tr><th>{t("config.integrations.integration")}</th><th>{t("config.fields.type")}</th><th>{t("config.fields.status")}</th><th>{t("config.fields.configuredBy")}</th><th>{t("config.integrations.lastSync")}</th><th style={{width:40}}></th></tr>
             </thead>
             <tbody>
               {integrations.map(intg => (
@@ -740,26 +755,26 @@ function Integrations() {
       <div className="grid grid-2">
         <div className="card">
           <div className="card-h">
-            <div className="card-title">API tokens</div>
+            <div className="card-title">{t("config.token.title")}</div>
             <div className="spacer" />
-            <button className="btn sm" onClick={() => setAddTokenOpen(true)}><Icon name="plus" /> Generate</button>
+            <button className="btn sm" onClick={() => setAddTokenOpen(true)}><Icon name="plus" /> {t("config.token.generate")}</button>
           </div>
           <div className="card-b">
             {tokens.length === 0 ? (
-              <div className="empty" style={{padding:"16px 0"}}>No tokens yet.</div>
+              <div className="empty" style={{padding:"16px 0"}}>{t("config.token.empty")}</div>
             ) : (
               <div style={{display:"flex", flexDirection:"column", gap:8}}>
-                {tokens.map(t => (
-                  <div key={t.id} style={{display:"flex", alignItems:"center", gap:10, padding:"10px 12px", border:"1px solid var(--border)", borderRadius:"var(--radius)", background:"var(--bg-2)"}}>
+                {tokens.map(tok => (
+                  <div key={tok.id} style={{display:"flex", alignItems:"center", gap:10, padding:"10px 12px", border:"1px solid var(--border)", borderRadius:"var(--radius)", background:"var(--bg-2)"}}>
                     <div style={{flex:1, minWidth:0}}>
-                      <div style={{fontSize:12, fontWeight:500}}>{t.name}</div>
+                      <div style={{fontSize:12, fontWeight:500}}>{tok.name}</div>
                       <div className="mono dim" style={{fontSize:10.5}}>
-                        {t.token_prefix}… · {t.scope || "write"}
-                        {t.expires_at && <> · expires {String(t.expires_at).slice(0, 10)}</>}
+                        {tok.token_prefix}… · {tok.scope === "read" ? t("config.token.read") : t("config.token.write")}
+                        {tok.expires_at && <> · {t("config.token.expires", { date: formatConfigDate(tok.expires_at, lang, { dateStyle: "medium" }) })}</>}
                       </div>
                     </div>
-                    {t.last_used_at && <span className="mono dim" style={{fontSize:10.5, flexShrink:0}}>used {t.last_used_at}</span>}
-                    <button className="btn ghost icon sm" title="Revoke" onClick={() => handleRevokeToken(t)} style={{color:"var(--fail)"}}>✕</button>
+                    {tok.last_used_at && <span className="mono dim" style={{fontSize:10.5, flexShrink:0}}>{t("config.token.lastUsed", { date: formatConfigDate(tok.last_used_at, lang) })}</span>}
+                    <button className="btn ghost icon sm" title={t("config.token.revoke")} onClick={() => handleRevokeToken(tok)} style={{color:"var(--fail)"}}>✕</button>
                   </div>
                 ))}
               </div>
@@ -769,13 +784,13 @@ function Integrations() {
 
         <div className="card">
           <div className="card-h">
-            <div className="card-title">Webhooks & outbound</div>
+            <div className="card-title">{t("config.webhook.title")}</div>
             <div className="spacer" />
-            <button className="btn sm" onClick={() => setAddWebhookOpen(true)}><Icon name="plus" /> Add</button>
+            <button className="btn sm" onClick={() => setAddWebhookOpen(true)}><Icon name="plus" /> {t("config.actions.add")}</button>
           </div>
           <div className="card-b">
             {webhooks.length === 0 ? (
-              <div className="empty" style={{padding:"16px 0"}}>No webhooks yet.</div>
+              <div className="empty" style={{padding:"16px 0"}}>{t("config.webhook.empty")}</div>
             ) : (
               <div style={{display:"flex", flexDirection:"column", gap:8}}>
                 {webhooks.map(wh => {
@@ -789,7 +804,7 @@ function Integrations() {
                         <span className="mono" style={{fontSize:11, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{wh.url}</span>
                         <button
                           className="btn ghost icon sm"
-                          title="Edit"
+                          title={t("config.actions.edit")}
                           onClick={() => setEditingWebhook(wh)}
                           style={{flexShrink:0}}
                         >✎</button>
@@ -798,19 +813,19 @@ function Integrations() {
                           style={{flexShrink:0, fontSize:11}}
                           disabled={testingWh === wh.id}
                           onClick={() => handleTestWebhook(wh)}
-                        >{testingWh === wh.id ? "…" : "Test"}</button>
+                        >{testingWh === wh.id ? "…" : t("config.webhook.test")}</button>
                         <button
                           className="btn ghost icon sm"
-                          title="Delete"
+                          title={t("config.actions.delete")}
                           style={{flexShrink:0, color:"var(--fail)"}}
                           onClick={() => handleDeleteWebhook(wh)}
                         >✕</button>
                       </div>
                       <div className="mono dim" style={{fontSize:10.5}}>
-                        fires on: {(wh.events || []).join(", ") || "—"}
-                        {wh.last_delivery_at ? ` · last delivery ${wh.last_delivery_at}` : ""}
+                        {t("config.webhook.firesOn")}: {(wh.events || []).join(", ") || "—"}
+                        {wh.last_delivery_at ? ` · ${t("config.webhook.lastDelivery", { date: formatConfigDate(wh.last_delivery_at, lang) })}` : ""}
                         {tr && <span style={{color: tr.ok ? "var(--pass)" : "var(--fail)", marginLeft:6}}>
-                          {tr.ok ? "✓ OK" : tr.status_code ? `✕ ${tr.status_code}` : "✕ unreachable"}
+                          {tr.ok ? t("config.webhook.ok") : tr.status_code ? `✕ ${tr.status_code}` : `✕ ${t("config.webhook.unreachable")}`}
                         </span>}
                       </div>
                     </div>
@@ -868,6 +883,7 @@ function Integrations() {
 }
 
 function AIAssistant({ currentUser, currentFolderId }) {
+  const { t } = useI18n();
   // Active panel: "generate" | "edge-cases" | "ask"
   const [panel, setPanel] = React.useState("generate");
 
@@ -992,9 +1008,9 @@ function AIAssistant({ currentUser, currentFolderId }) {
     <div className="page fade-in" style={{maxWidth:1000}}>
       <div className="page-h">
         <div>
-          <div className="eyebrow"><span className="dot" style={{background:"var(--purple)"}} /> AI assistant</div>
-          <h1 className="page-title" style={{marginTop:8}}>Test ideas that don't exist yet.</h1>
-          <div className="page-sub">Generate test cases and discover edge cases using AI. Flaky analysis is available on each test's Run history tab.</div>
+          <div className="eyebrow"><span className="dot" style={{background:"var(--purple)"}} /> {t("config.ai.title")}</div>
+          <h1 className="page-title" style={{marginTop:8}}>{t("config.ai.headline")}</h1>
+          <div className="page-sub">{t("config.ai.subtitle")}</div>
         </div>
       </div>
 
@@ -1003,38 +1019,38 @@ function AIAssistant({ currentUser, currentFolderId }) {
         <button
           className={"btn sm" + (panel === "generate" ? " primary" : "")}
           onClick={() => setPanel("generate")}
-        >Generate tests</button>
+        >{t("config.ai.generateTests")}</button>
         <button
           className={"btn sm" + (panel === "edge-cases" ? " primary" : "")}
           onClick={() => setPanel("edge-cases")}
-        >Suggest edge cases</button>
+        >{t("config.ai.suggestEdgeCases")}</button>
         <button
           className={"btn sm" + (panel === "ask" ? " primary" : "")}
           onClick={() => setPanel("ask")}
-        >Ask AI</button>
+        >{t("config.ai.ask")}</button>
       </div>
 
       {/* Generate Tests panel */}
       {panel === "generate" && (
         <div className="card">
           <div className="card-h">
-            <div className="card-title">Generate test cases</div>
-            <div className="card-sub">Describe what to test — AI returns structured test cases with steps.</div>
+            <div className="card-title">{t("config.ai.generateTitle")}</div>
+            <div className="card-sub">{t("config.ai.generateSubtitle")}</div>
           </div>
           <div className="card-b">
             <div className="field" style={{marginBottom:12}}>
-              <label className="field-label">Describe what to test</label>
+              <label className="field-label">{t("config.ai.describeTest")}</label>
               <textarea
                 className="textarea"
                 style={{minHeight:80, fontFamily:"var(--font-sans)", width:"100%"}}
                 value={genDesc}
                 onChange={e => setGenDesc(e.target.value)}
-                placeholder="e.g. When a user applies an expired coupon at checkout, the cart should show a graceful error and recalculate totals."
+                placeholder={t("config.ai.describePlaceholder")}
                 disabled={genLoading}
               />
             </div>
             <div className="field" style={{marginBottom:14}}>
-              <label className="field-label">Number of tests</label>
+              <label className="field-label">{t("config.ai.testCount")}</label>
               <select
                 className="select"
                 value={genCount}
@@ -1046,7 +1062,7 @@ function AIAssistant({ currentUser, currentFolderId }) {
               </select>
             </div>
             <div className="field" style={{marginBottom:14}}>
-              <label className="field-label">Save to folder</label>
+              <label className="field-label">{t("config.ai.saveToFolder")}</label>
               <select
                 className="select"
                 style={{width:"100%", maxWidth:480}}
@@ -1054,7 +1070,7 @@ function AIAssistant({ currentUser, currentFolderId }) {
                 onChange={e => setGenFolderId(e.target.value)}
                 disabled={genLoading || genSaving}
               >
-                <option value="">No folder</option>
+                <option value="">{t("config.ai.noFolder")}</option>
                 {folderIds.map(id => (
                   <option key={id} value={id}>{(folderPaths[id] || id) + ` (${folderCounts[id] || 0})`}</option>
                 ))}
@@ -1066,7 +1082,7 @@ function AIAssistant({ currentUser, currentFolderId }) {
                 onClick={handleGenerate}
                 disabled={genLoading || !genDesc.trim()}
               >
-                {genLoading ? "Generating…" : <><Icon name="sparkle" /> Generate</>}
+                {genLoading ? t("config.ai.generating") : <><Icon name="sparkle" /> {t("config.ai.generate")}</>}
               </button>
             </div>
             {genError && (
@@ -1075,9 +1091,9 @@ function AIAssistant({ currentUser, currentFolderId }) {
             {genResults && genResults.length > 0 && (
               <div style={{marginTop:16}}>
                 <div style={{fontSize:12, fontWeight:500, marginBottom:10, color:"var(--text-muted)"}}>
-                  {genResults.length} test case{genResults.length !== 1 ? "s" : ""} generated — select which to save
+                  {t(genResults.length === 1 ? "config.ai.generatedOne" : "config.ai.generatedMany", { count: genResults.length })}
                   <span style={{marginLeft:8, color: genFolderId ? "var(--text-muted)" : "var(--warn)"}}>
-                    {genFolderId ? `→ ${folderPaths[genFolderId] || genFolderId}` : "(no folder — saved without folder)"}
+                    {genFolderId ? `→ ${folderPaths[genFolderId] || genFolderId}` : t("config.ai.savedWithoutFolder")}
                   </span>
                 </div>
                 <div style={{display:"flex", flexDirection:"column", gap:8}}>
@@ -1114,9 +1130,9 @@ function AIAssistant({ currentUser, currentFolderId }) {
                     onClick={handleSaveSelected}
                     disabled={!anySelected || genSaving}
                   >
-                    {genSaving ? "Saving…" : "Save selected"}
+                    {genSaving ? t("config.actions.saving") : t("config.ai.saveSelected")}
                   </button>
-                  <button className="btn" onClick={() => { setGenResults(null); setGenSelected({}); }}>Discard</button>
+                  <button className="btn" onClick={() => { setGenResults(null); setGenSelected({}); }}>{t("config.ai.discard")}</button>
                 </div>
               </div>
             )}
@@ -1128,17 +1144,17 @@ function AIAssistant({ currentUser, currentFolderId }) {
       {panel === "edge-cases" && (
         <div className="card">
           <div className="card-h">
-            <div className="card-title">Suggest edge cases</div>
-            <div className="card-sub">Pick a folder — AI compares its existing tests and flags uncovered edge cases.</div>
+            <div className="card-title">{t("config.ai.suggestEdgeCases")}</div>
+            <div className="card-sub">{t("config.ai.edgeCasesSubtitle")}</div>
           </div>
           <div className="card-b">
             {folderIds.length === 0 ? (
               <div style={{fontSize:12, color:"var(--text-muted)", marginBottom:12}}>
-                No folders with tests yet. Create some tests first.
+                {t("config.ai.noFoldersWithTests")}
               </div>
             ) : (
               <div className="field" style={{marginBottom:14}}>
-                <label className="field-label">Folder</label>
+                <label className="field-label">{t("config.ai.folder")}</label>
                 <select
                   className="select"
                   style={{width:"100%", maxWidth:480}}
@@ -1157,7 +1173,7 @@ function AIAssistant({ currentUser, currentFolderId }) {
               onClick={handleSuggest}
               disabled={ecLoading || !ecFolderId}
             >
-              {ecLoading ? "Analyzing…" : <><Icon name="sparkle" /> Suggest edge cases</>}
+              {ecLoading ? t("config.ai.analyzing") : <><Icon name="sparkle" /> {t("config.ai.suggestEdgeCases")}</>}
             </button>
             {ecError && (
               <div style={{fontSize:12, color:"var(--fail)", marginTop:10}}>{ecError}</div>
@@ -1167,7 +1183,7 @@ function AIAssistant({ currentUser, currentFolderId }) {
                 {(() => {
                   const suggestions = Array.isArray(ecResults) ? ecResults : (ecResults.suggestions || []);
                   if (suggestions.length === 0) {
-                    return <div style={{fontSize:12, color:"var(--text-muted)"}}>No edge cases found for this folder.</div>;
+                    return <div style={{fontSize:12, color:"var(--text-muted)"}}>{t("config.ai.noEdgeCases")}</div>;
                   }
                   return suggestions.map((s, i) => (
                     <div key={i} style={{padding:"12px 14px", border:"1px solid var(--border)", borderRadius:6, background:"var(--bg-2)", marginBottom:8}}>
@@ -1183,7 +1199,7 @@ function AIAssistant({ currentUser, currentFolderId }) {
                           if (ecFolderId) setGenFolderId(ecFolderId);
                           setPanel("generate");
                         }}
-                      >Generate test</button>
+                      >{t("config.ai.generateTest")}</button>
                     </div>
                   ));
                 })()}
@@ -1197,18 +1213,18 @@ function AIAssistant({ currentUser, currentFolderId }) {
       {panel === "ask" && (
         <div className="card">
           <div className="card-h">
-            <div className="card-title">Ask AI</div>
-            <div className="card-sub">Ask any QA or test-design question — free-form, no structure required.</div>
+            <div className="card-title">{t("config.ai.ask")}</div>
+            <div className="card-sub">{t("config.ai.askSubtitle")}</div>
           </div>
           <div className="card-b">
             <div className="field" style={{marginBottom:12}}>
-              <label className="field-label">Your prompt</label>
+              <label className="field-label">{t("config.ai.prompt")}</label>
               <textarea
                 className="textarea"
                 style={{minHeight:100, fontFamily:"var(--font-sans)", width:"100%"}}
                 value={askPrompt}
                 onChange={e => setAskPrompt(e.target.value)}
-                placeholder="e.g. What boundary conditions should I test for a date-range filter?"
+                placeholder={t("config.ai.promptPlaceholder")}
                 disabled={askLoading}
                 onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleAsk(); }}
               />
@@ -1219,7 +1235,7 @@ function AIAssistant({ currentUser, currentFolderId }) {
                 onClick={handleAsk}
                 disabled={askLoading || !askPrompt.trim()}
               >
-                {askLoading ? "Thinking…" : <><Icon name="sparkle" /> Ask</>}
+                {askLoading ? t("config.ai.thinking") : <><Icon name="sparkle" /> {t("config.ai.ask")}</>}
               </button>
               <span style={{fontSize:11, color:"var(--text-muted)"}}>⌘/Ctrl+Enter</span>
             </div>
@@ -1228,7 +1244,7 @@ function AIAssistant({ currentUser, currentFolderId }) {
             )}
             {askAnswer != null && (
               <div style={{marginTop:16, padding:"14px 16px", border:"1px solid var(--border)", borderRadius:6, background:"var(--bg-2)", fontSize:13, lineHeight:1.7, whiteSpace:"pre-wrap"}}>
-                {askAnswer || <span style={{color:"var(--text-muted)"}}>(empty response)</span>}
+                {askAnswer || <span style={{color:"var(--text-muted)"}}>{t("config.ai.emptyResponse")}</span>}
               </div>
             )}
           </div>

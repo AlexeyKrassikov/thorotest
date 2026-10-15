@@ -127,7 +127,7 @@ test.describe('Suite P2 — RBAC (Roles & Permissions)', () => {
     await page.fill('input[placeholder="Password *"]', 'tmppass123-long');
     await page.fill('input[placeholder="Display name"], input[placeholder="Nome visualizzato"]', 'Tmp User');
     await page.locator('form select').selectOption('viewer');
-    await page.click('button[type="submit"]:has-text("Crea utente")');
+    await page.getByRole('button', { name: 'Create user', exact: true }).click();
 
     await expect(page.getByText(tmpEmail)).toBeVisible({ timeout: 5000 });
 

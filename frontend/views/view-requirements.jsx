@@ -1,9 +1,10 @@
 // Requirements view — features/stories/epics with test coverage
 
 function CoverageBar({ coverage }) {
+  const { t } = useI18n();
   const c = coverage || { linked: 0, passed: 0, failed: 0, untested: 0, pass_rate: 0 };
   if (!c.linked) {
-    return <span className="mono dim" style={{fontSize:11}}>no tests</span>;
+    return <span className="mono dim" style={{fontSize:11}}>{t("cases.requirements.noTests")}</span>;
   }
   const pct = n => `${(n / c.linked) * 100}%`;
   return (
@@ -21,6 +22,7 @@ function CoverageBar({ coverage }) {
 }
 
 function Requirements({ currentUser }) {
+  const { t } = useI18n();
   const [requirements, setRequirements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -74,12 +76,12 @@ function Requirements({ currentUser }) {
     <div style={{display:"flex", flexDirection:"column", height:"100%"}}>
       <div className="page-h" style={{padding:"18px 22px 0", marginBottom:14}}>
         <div>
-          <h1 className="page-title">Requirements</h1>
-          <div className="page-sub">Features, stories, and epics — track which are covered by tests and which are at risk.</div>
+          <h1 className="page-title">{t("cases.requirements.title")}</h1>
+          <div className="page-sub">{t("cases.requirements.subtitle")}</div>
         </div>
         {canWrite && (
           <div className="actions">
-            <button className="btn accent" onClick={() => setEditing({})}><Icon name="plus" /> New requirement</button>
+            <button className="btn accent" onClick={() => setEditing({})}><Icon name="plus" /> {t("cases.requirements.newRequirement")}</button>
           </div>
         )}
       </div>
@@ -87,9 +89,9 @@ function Requirements({ currentUser }) {
       {/* Summary chips */}
       <div style={{display:"flex", gap:8, padding:"0 22px 14px"}}>
         {[
-          { label: "Total", count: total, color: "var(--text)", covered: "all" },
-          { label: "Uncovered", count: uncovered, color: "var(--warn)", covered: "false" },
-          { label: "At risk (failing)", count: atRisk, color: "var(--fail)", covered: "all", risk: true },
+          { label: t("cases.requirements.total"), count: total, color: "var(--text)", covered: "all" },
+          { label: t("cases.requirements.uncovered"), count: uncovered, color: "var(--warn)", covered: "false" },
+          { label: t("cases.requirements.atRisk"), count: atRisk, color: "var(--fail)", covered: "all", risk: true },
         ].map(c => (
           <button
             key={c.label}
@@ -105,49 +107,49 @@ function Requirements({ currentUser }) {
 
       {/* Filters */}
       <div style={{display:"flex", gap:8, padding:"0 22px 10px", alignItems:"center"}}>
-        <input className="input" style={{width:220}} placeholder="Search requirements…" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={handleSearch} />
+        <input className="input" style={{width:220}} placeholder={t("cases.requirements.search")} value={search} onChange={e => setSearch(e.target.value)} onKeyDown={handleSearch} />
         <select className="input" style={{width:120}} value={filterType} onChange={e => setFilterType(e.target.value)}>
-          <option value="all">All types</option>
-          <option value="epic">Epic</option>
-          <option value="story">Story</option>
-          <option value="feature">Feature</option>
+          <option value="all">{t("cases.requirements.allTypes")}</option>
+          <option value="epic">{t("cases.requirements.epic")}</option>
+          <option value="story">{t("cases.requirements.story")}</option>
+          <option value="feature">{t("cases.requirements.feature")}</option>
         </select>
         <select className="input" style={{width:120}} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="all">All statuses</option>
-          <option value="active">Active</option>
-          <option value="draft">Draft</option>
-          <option value="done">Done</option>
-          <option value="deprecated">Deprecated</option>
+          <option value="all">{t("cases.requirements.allStatuses")}</option>
+          <option value="active">{t("cases.requirements.active")}</option>
+          <option value="draft">{t("cases.requirements.draft")}</option>
+          <option value="done">{t("cases.requirements.done")}</option>
+          <option value="deprecated">{t("cases.requirements.deprecated")}</option>
         </select>
         <select className="input" style={{width:130}} value={filterCovered} onChange={e => setFilterCovered(e.target.value)}>
-          <option value="all">Any coverage</option>
-          <option value="true">Covered</option>
-          <option value="false">Uncovered</option>
+          <option value="all">{t("cases.requirements.anyCoverage")}</option>
+          <option value="true">{t("cases.requirements.covered")}</option>
+          <option value="false">{t("cases.requirements.uncovered")}</option>
         </select>
         {(search || filterType !== "all" || filterStatus !== "all" || filterCovered !== "all") && (
-          <button className="btn sm ghost" onClick={() => { setSearch(""); setFilterType("all"); setFilterStatus("all"); setFilterCovered("all"); }}>Clear</button>
+          <button className="btn sm ghost" onClick={() => { setSearch(""); setFilterType("all"); setFilterStatus("all"); setFilterCovered("all"); }}>{t("cases.requirements.clear")}</button>
         )}
         <div className="spacer" />
-        <span className="mono dim" style={{fontSize:11}}>{requirements.length} requirement{requirements.length !== 1 ? "s" : ""}</span>
+        <span className="mono dim" style={{fontSize:11}}>{t(requirements.length === 1 ? "cases.requirements.requirementCountOne" : "cases.requirements.requirementCount", { count: requirements.length })}</span>
       </div>
 
       {/* Table */}
       <div style={{flex:1, overflowY:"auto", padding:"0 22px 32px"}}>
         <div className="card" style={{padding:0}}>
           {loading ? (
-            <div className="mono dim" style={{padding:"32px", textAlign:"center"}}>Loading…</div>
+            <div className="mono dim" style={{padding:"32px", textAlign:"center"}}>{t("cases.requirements.loading")}</div>
           ) : requirements.length === 0 ? (
-            <div className="mono dim" style={{padding:"32px", textAlign:"center"}}>No requirements found.</div>
+            <div className="mono dim" style={{padding:"32px", textAlign:"center"}}>{t("cases.requirements.empty")}</div>
           ) : (
             <table className="table">
               <thead>
                 <tr>
-                  <th style={{width:90}}>ID</th>
-                  <th>Title</th>
-                  <th style={{width:80}}>Type</th>
-                  <th style={{width:90}}>Status</th>
-                  <th style={{width:200}}>Coverage</th>
-                  <th style={{width:70}}>Tests</th>
+                  <th style={{width:90}}>{t("cases.requirements.id")}</th>
+                  <th>{t("cases.requirements.titleLabel")}</th>
+                  <th style={{width:80}}>{t("cases.requirements.type")}</th>
+                  <th style={{width:90}}>{t("cases.requirements.status")}</th>
+                  <th style={{width:200}}>{t("cases.requirements.coverage")}</th>
+                  <th style={{width:70}}>{t("cases.requirements.tests")}</th>
                   <th style={{width:64}}></th>
                 </tr>
               </thead>
@@ -157,7 +159,7 @@ function Requirements({ currentUser }) {
                     <td className="mono" style={{fontSize:11.5}}>
                       {r.id}
                       {r.external_key && (
-                        <a href={r.external_url || "#"} target="_blank" rel="noreferrer" title="View in tracker" style={{display:"block", fontSize:10, color:"var(--accent)", textDecoration:"none"}}>
+                        <a href={r.external_url || "#"} target="_blank" rel="noreferrer" title={t("cases.requirements.viewTracker")} style={{display:"block", fontSize:10, color:"var(--accent)", textDecoration:"none"}}>
                           {r.external_key}
                         </a>
                       )}
@@ -167,16 +169,16 @@ function Requirements({ currentUser }) {
                       {r.description && (
                         <div style={{fontSize:11, color:"var(--text-muted)", marginTop:2, lineHeight:1.4, maxWidth:480, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{r.description}</div>
                       )}
-                      {r.owner && <div style={{fontSize:10.5, color:"var(--text-dim)", marginTop:2}}>Owner {r.owner}</div>}
+                      {r.owner && <div style={{fontSize:10.5, color:"var(--text-dim)", marginTop:2}}>{t("cases.requirements.owner")} {r.owner}</div>}
                     </td>
-                    <td><span className={"tag " + typeTag(r.type)}>{r.type}</span></td>
-                    <td><span style={{fontSize:11.5, color:statusColor(r.status)}}>{r.status}</span></td>
+                    <td><span className={"tag " + typeTag(r.type)}>{t(`cases.requirements.${r.type}Value`)}</span></td>
+                    <td><span style={{fontSize:11.5, color:statusColor(r.status)}}>{t(`cases.requirements.${r.status}Value`)}</span></td>
                     <td><CoverageBar coverage={r.coverage} /></td>
                     <td className="mono dim" style={{fontSize:11}}>{r.coverage.linked}</td>
                     <td>
                       <div style={{display:"flex", gap:2}}>
-                        {canWrite && <button className="btn ghost sm" style={{padding:"2px 6px"}} onClick={() => setEditing(r)} title="Edit"><Icon name="settings" /></button>}
-                        {canDelete && <button className="btn ghost sm" style={{color:"var(--fail)", padding:"2px 6px"}} onClick={() => setDeleteConfirmId(r.id)} title="Delete"><Icon name="x" /></button>}
+                        {canWrite && <button className="btn ghost sm" style={{padding:"2px 6px"}} onClick={() => setEditing(r)} title={t("cases.requirements.edit")}><Icon name="settings" /></button>}
+                        {canDelete && <button className="btn ghost sm" style={{color:"var(--fail)", padding:"2px 6px"}} onClick={() => setDeleteConfirmId(r.id)} title={t("cases.requirements.delete")}><Icon name="x" /></button>}
                       </div>
                     </td>
                   </tr>
@@ -198,11 +200,11 @@ function Requirements({ currentUser }) {
       {deleteConfirmId && (
         <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...deleteModal.overlayProps}>
           <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:360}} {...deleteModal.dialogProps}>
-            <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 10px"}}>Delete {deleteConfirmId}?</h2>
-            <p style={{fontSize:12.5, color:"var(--text-muted)", margin:"0 0 20px"}}>This unlinks it from all tests. Permanent.</p>
+            <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 10px"}}>{t("cases.requirements.deleteTitle", { id: deleteConfirmId })}</h2>
+            <p style={{fontSize:12.5, color:"var(--text-muted)", margin:"0 0 20px"}}>{t("cases.requirements.deleteBody")}</p>
             <div style={{display:"flex", gap:8, justifyContent:"flex-end"}}>
-              <button className="btn" onClick={() => setDeleteConfirmId(null)}>Cancel</button>
-              <button className="btn" style={{background:"var(--fail)", color:"white", border:"none"}} onClick={() => handleDelete(deleteConfirmId)}>Delete</button>
+              <button className="btn" onClick={() => setDeleteConfirmId(null)}>{t("cases.requirements.cancel")}</button>
+              <button className="btn" style={{background:"var(--fail)", color:"white", border:"none"}} onClick={() => handleDelete(deleteConfirmId)}>{t("cases.requirements.delete")}</button>
             </div>
           </div>
         </div>
@@ -212,6 +214,7 @@ function Requirements({ currentUser }) {
 }
 
 function TestPicker({ selected, onChange }) {
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
@@ -233,16 +236,16 @@ function TestPicker({ selected, onChange }) {
         {selected.map(id => (
           <span key={id} className="tag" style={{display:"inline-flex", alignItems:"center", gap:4}}>
             <span className="mono" style={{fontSize:11}}>{id}</span>
-            <button className="btn ghost sm" style={{padding:0, width:16, height:16, lineHeight:1}} onClick={() => remove(id)} title="Remove"><Icon name="x" /></button>
+            <button className="btn ghost sm" style={{padding:0, width:16, height:16, lineHeight:1}} onClick={() => remove(id)} title={t("cases.requirements.unlink")}><Icon name="x" /></button>
           </span>
         ))}
-        {selected.length === 0 && <span className="mono dim" style={{fontSize:11}}>No tests linked yet.</span>}
+        {selected.length === 0 && <span className="mono dim" style={{fontSize:11}}>{t("cases.requirements.noTestsLinked")}</span>}
       </div>
       <div style={{position:"relative"}}>
         <input
           className="input"
           style={{width:"100%", boxSizing:"border-box"}}
-          placeholder="Search tests to link (id or title)…"
+          placeholder={t("cases.requirements.searchTests")}
           value={query}
           onChange={e => { setQuery(e.target.value); setOpen(true); runSearch(e.target.value); }}
           onFocus={() => setOpen(true)}
@@ -263,6 +266,7 @@ function TestPicker({ selected, onChange }) {
 }
 
 function RequirementModal({ requirement, onClose, onSaved }) {
+  const { t } = useI18n();
   const modal = useModal(onClose);
   const isNew = !requirement;
   const [form, setForm] = useState({
@@ -307,67 +311,67 @@ function RequirementModal({ requirement, onClose, onSaved }) {
   return (
     <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...modal.overlayProps}>
       <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:520, maxHeight:"85vh", overflowY:"auto"}} {...modal.dialogProps}>
-        <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 16px"}}>{isNew ? "New requirement" : `Edit ${requirement.id}`}</h2>
+        <h2 style={{fontSize:15, fontWeight:600, margin:"0 0 16px"}}>{isNew ? t("cases.requirements.newTitle") : t("cases.requirements.editTitle", { id: requirement.id })}</h2>
         <div style={{display:"flex", flexDirection:"column", gap:10}}>
           <div>
-            <label style={L}>Title</label>
-            <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={form.title} placeholder="e.g. Guest checkout" onChange={e => setForm(f => ({...f, title: e.target.value}))} autoFocus />
+            <label style={L}>{t("cases.requirements.titleLabel")}</label>
+            <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={form.title} placeholder={t("cases.requirements.titlePlaceholder")} onChange={e => setForm(f => ({...f, title: e.target.value}))} autoFocus />
           </div>
           <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10}}>
             <div>
-              <label style={L}>Type</label>
+              <label style={L}>{t("cases.requirements.type")}</label>
               <select className="input" value={form.type} onChange={e => setForm(f => ({...f, type: e.target.value}))}>
-                <option value="epic">Epic</option>
-                <option value="story">Story</option>
-                <option value="feature">Feature</option>
+                <option value="epic">{t("cases.requirements.epic")}</option>
+                <option value="story">{t("cases.requirements.story")}</option>
+                <option value="feature">{t("cases.requirements.feature")}</option>
               </select>
             </div>
             <div>
-              <label style={L}>Status</label>
+              <label style={L}>{t("cases.requirements.status")}</label>
               <select className="input" value={form.status} onChange={e => setForm(f => ({...f, status: e.target.value}))}>
-                <option value="active">Active</option>
-                <option value="draft">Draft</option>
-                <option value="done">Done</option>
-                <option value="deprecated">Deprecated</option>
+                <option value="active">{t("cases.requirements.active")}</option>
+                <option value="draft">{t("cases.requirements.draft")}</option>
+                <option value="done">{t("cases.requirements.done")}</option>
+                <option value="deprecated">{t("cases.requirements.deprecated")}</option>
               </select>
             </div>
             <div>
-              <label style={L}>Priority</label>
+              <label style={L}>{t("cases.library.priority")}</label>
               <select className="input" value={form.priority} onChange={e => setForm(f => ({...f, priority: e.target.value}))}>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="med">Medium</option>
-                <option value="low">Low</option>
+                <option value="critical">{t("cases.requirements.critical")}</option>
+                <option value="high">{t("cases.requirements.high")}</option>
+                <option value="med">{t("cases.requirements.medium")}</option>
+                <option value="low">{t("cases.requirements.low")}</option>
               </select>
             </div>
           </div>
           <div>
-            <label style={L}>Owner (optional)</label>
-            <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={form.owner} placeholder="anna@example.com" onChange={e => setForm(f => ({...f, owner: e.target.value}))} />
+            <label style={L}>{t("cases.requirements.ownerOptional")}</label>
+            <input className="input" style={{width:"100%", boxSizing:"border-box"}} value={form.owner} placeholder={t("cases.library.emailPlaceholder")} onChange={e => setForm(f => ({...f, owner: e.target.value}))} />
           </div>
           <div>
-            <label style={L}>Description (optional)</label>
+            <label style={L}>{t("cases.requirements.descriptionOptional")}</label>
             <textarea className="textarea" style={{width:"100%", boxSizing:"border-box", minHeight:60}} value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} />
           </div>
           <CustomFieldsInputs defs={cfDefs} values={customFields} onChange={setCustomFields} />
           <div>
-            <label style={L}>Linked tests</label>
+            <label style={L}>{t("cases.requirements.linkedTests")}</label>
             <TestPicker selected={form.test_ids} onChange={ids => setForm(f => ({...f, test_ids: ids}))} />
           </div>
         </div>
         {err && <div style={{color:"var(--fail)", fontSize:12, marginTop:10}}>{err}</div>}
         {!isNew && (
           <div style={{marginTop:18, borderTop:"1px solid var(--border)", paddingTop:6}}>
-            <label style={L}>Change history</label>
+            <label style={L}>{t("cases.requirements.changeHistory")}</label>
             <div style={{marginLeft:-22, marginRight:-22}}>
               <ChangeHistory entityType="requirement" entityId={requirement.id} />
             </div>
           </div>
         )}
         <div style={{display:"flex", gap:8, justifyContent:"flex-end", marginTop:20}}>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={onClose}>{t("cases.requirements.cancel")}</button>
           <button className="btn accent" onClick={save} disabled={saving || !form.title.trim()}>
-            {saving ? "Saving…" : (isNew ? "Create" : "Save")}
+            {saving ? t("cases.requirements.saving") : (isNew ? t("cases.requirements.create") : t("cases.requirements.save"))}
           </button>
         </div>
       </div>

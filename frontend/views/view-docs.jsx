@@ -1,12 +1,12 @@
 // ThoroTest — Docs & API view
 
 const DOC_SECTIONS = [
-  { id: "quickstart", label: "Quickstart",  icon: "branch" },
-  { id: "rest",       label: "REST API",    icon: "doc" },
-  { id: "cli",        label: "CLI",         icon: "play" },
-  { id: "sdks",       label: "SDKs",        icon: "filter" },
-  { id: "webhooks",   label: "Webhooks",    icon: "plug" },
-  { id: "about",      label: "About",       icon: "clock" },
+  { id: "quickstart", label: "docs.sections.quickstart", icon: "branch" },
+  { id: "rest", label: "docs.sections.rest", icon: "doc" },
+  { id: "cli", label: "docs.sections.cli", icon: "play" },
+  { id: "sdks", label: "docs.sections.sdks", icon: "filter" },
+  { id: "webhooks", label: "docs.sections.webhooks", icon: "plug" },
+  { id: "about", label: "docs.sections.about", icon: "clock" },
 ];
 
 const METHOD_STYLE = {
@@ -64,14 +64,23 @@ function resolveSchema(schema, schemas, depth = 0) {
   return schema;
 }
 
+function localizeApiText(lang, catalog, text) {
+  return window.TH_LOCALES[lang]?.docs?.[catalog]?.[text] || text;
+}
+
+function localizeApiDescription(lang, op) {
+  return window.TH_LOCALES[lang]?.docs?.apiDescriptions?.[op.operationId] || op.description;
+}
+
 function SchemaFields({ schema, schemas, depth = 0 }) {
+  const { t } = useI18n();
   const resolved = resolveSchema(schema, schemas);
   if (!resolved) return null;
 
   if (resolved.type === "array") {
     return (
       <div>
-        <span style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>array of:</span>
+        <span style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>{t("docs.rest.arrayOf")}</span>
         <div style={{ marginLeft: 12 }}>
           <SchemaFields schema={resolved.items} schemas={schemas} depth={depth + 1} />
         </div>
@@ -91,7 +100,7 @@ function SchemaFields({ schema, schemas, depth = 0 }) {
             <div key={name} style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 11.5 }}>
               <span style={{ fontFamily: "var(--font-mono)", color: "var(--text)", minWidth: 120 }}>{name}</span>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--info)" }}>{type}</span>
-              {isReq && <span style={{ fontSize: 10, color: "var(--fail)", fontFamily: "var(--font-mono)" }}>required</span>}
+              {isReq && <span style={{ fontSize: 10, color: "var(--fail)", fontFamily: "var(--font-mono)" }}>{t("docs.rest.required")}</span>}
               {resolvedProp?.description && (
                 <span style={{ color: "var(--text-dim)", fontSize: 11 }}>{resolvedProp.description}</span>
               )}
@@ -109,6 +118,7 @@ function SchemaFields({ schema, schemas, depth = 0 }) {
 /* ── endpoint card ────────────────────────────────────── */
 
 function EndpointCard({ method, path, op, schemas }) {
+  const { t, lang } = useI18n();
   const [open, setOpen] = React.useState(false);
 
   const params = op.parameters || [];
@@ -133,7 +143,7 @@ function EndpointCard({ method, path, op, schemas }) {
         <MethodBadge method={method} />
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--text)", flex: 1 }}>{path}</span>
         {op.summary && (
-          <span style={{ fontSize: 12, color: "var(--text-muted)", marginRight: 8 }}>{op.summary}</span>
+          <span style={{ fontSize: 12, color: "var(--text-muted)", marginRight: 8 }}>{localizeApiText(lang, "apiSummaries", op.summary)}</span>
         )}
         <span style={{ fontSize: 10, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>{open ? "▲" : "▼"}</span>
       </button>
@@ -141,18 +151,18 @@ function EndpointCard({ method, path, op, schemas }) {
       {open && (
         <div style={{ padding: "12px 14px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 14 }}>
           {op.description && (
-            <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>{op.description}</p>
+            <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>{localizeApiDescription(lang, op)}</p>
           )}
 
           {pathParams.length > 0 && (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Path params</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{t("docs.rest.pathParams")}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {pathParams.map(p => (
                   <div key={p.name} style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 11.5 }}>
                     <span style={{ fontFamily: "var(--font-mono)", color: "var(--text)", minWidth: 120 }}>{p.name}</span>
                     <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--info)" }}>{p.schema?.type || "string"}</span>
-                    {p.required && <span style={{ fontSize: 10, color: "var(--fail)", fontFamily: "var(--font-mono)" }}>required</span>}
+                    {p.required && <span style={{ fontSize: 10, color: "var(--fail)", fontFamily: "var(--font-mono)" }}>{t("docs.rest.required")}</span>}
                     {p.description && <span style={{ color: "var(--text-dim)", fontSize: 11 }}>{p.description}</span>}
                   </div>
                 ))}
@@ -162,13 +172,13 @@ function EndpointCard({ method, path, op, schemas }) {
 
           {queryParams.length > 0 && (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Query params</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{t("docs.rest.queryParams")}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {queryParams.map(p => (
                   <div key={p.name} style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 11.5 }}>
                     <span style={{ fontFamily: "var(--font-mono)", color: "var(--text)", minWidth: 120 }}>{p.name}</span>
                     <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--info)" }}>{p.schema?.type || "string"}</span>
-                    {p.required && <span style={{ fontSize: 10, color: "var(--fail)", fontFamily: "var(--font-mono)" }}>required</span>}
+                    {p.required && <span style={{ fontSize: 10, color: "var(--fail)", fontFamily: "var(--font-mono)" }}>{t("docs.rest.required")}</span>}
                     {p.description && <span style={{ color: "var(--text-dim)", fontSize: 11 }}>{p.description}</span>}
                   </div>
                 ))}
@@ -178,14 +188,14 @@ function EndpointCard({ method, path, op, schemas }) {
 
           {bodySchema && (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Request body</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{t("docs.rest.requestBody")}</div>
               <SchemaFields schema={bodySchema} schemas={schemas} />
             </div>
           )}
 
           {resp200 && (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Response</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{t("docs.rest.response")}</div>
               <SchemaFields schema={resp200} schemas={schemas} />
             </div>
           )}
@@ -198,12 +208,13 @@ function EndpointCard({ method, path, op, schemas }) {
 /* ── REST API section ─────────────────────────────────── */
 
 function RestApiSection() {
+  const { t } = useI18n();
   const [spec, setSpec]   = React.useState(null);
   const [err, setErr]     = React.useState(null);
   const [group, setGroup] = React.useState(null);
 
   React.useEffect(() => {
-    fetch("/openapi.json")
+    fetch("/openapi.json", { headers: window.authHeaders() })
       .then(r => r.json())
       .then(data => {
         setSpec(data);
@@ -211,11 +222,11 @@ function RestApiSection() {
         const groups = buildGroups(data);
         if (groups.length) setGroup(groups[0].tag);
       })
-      .catch(() => setErr("Could not load /openapi.json"));
+      .catch(() => setErr(true));
   }, []);
 
-  if (err)  return <div style={{ color: "var(--fail)", fontSize: 13 }}>{err}</div>;
-  if (!spec) return <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading spec…</div>;
+  if (err)  return <div style={{ color: "var(--fail)", fontSize: 13 }}>{t("docs.rest.loadError")}</div>;
+  if (!spec) return <div style={{ color: "var(--text-muted)", fontSize: 13 }}>{t("docs.rest.loading")}</div>;
 
   const schemas = spec.components?.schemas || {};
   const groups  = buildGroups(spec);
@@ -226,8 +237,8 @@ function RestApiSection() {
       <div style={{ marginBottom: 20 }}>
         <div className="page-title" style={{ fontSize: 18 }}>REST API</div>
         <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 4 }}>
-          Base URL: <code style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>http://localhost:8000/api</code>
-          &nbsp;·&nbsp; Auth: <code style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Authorization: Bearer &lt;token&gt;</code>
+          {t("docs.rest.baseUrl")}: <code style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>http://localhost:8000/api</code>
+          &nbsp;·&nbsp; {t("docs.rest.auth")}: <code style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>Authorization: Bearer &lt;token&gt;</code>
         </div>
       </div>
 
@@ -274,19 +285,20 @@ function buildGroups(spec) {
 /* ── Quickstart section ───────────────────────────────── */
 
 function QuickstartSection() {
+  const { t } = useI18n();
   return (
     <div style={{ maxWidth: 700 }}>
-      <div className="page-title" style={{ fontSize: 18, marginBottom: 4 }}>Quickstart</div>
+      <div className="page-title" style={{ fontSize: 18, marginBottom: 4 }}>{t("docs.quickstart.title")}</div>
       <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 28, lineHeight: 1.6 }}>
-        Get started with ThoroTest in under 60 seconds.
+        {t("docs.quickstart.subtitle")}
       </div>
 
-      <DocStep n="1" title="Start the server">
+      <DocStep n="1" title={t("docs.quickstart.startServer")}>
         <CodeBlock>{`cd thorotest
 make dev          # builds the frontend and starts the app on :8000`}</CodeBlock>
       </DocStep>
 
-      <DocStep n="2" title="Sign in">
+      <DocStep n="2" title={t("docs.quickstart.signIn")}>
         <CodeBlock>{`# Accounts are invite-only: /api/auth/register returns 403 unless the
 # instance sets ALLOW_OPEN_REGISTRATION=1. Admins create accounts under
 # Configure ▸ Admin. On a fresh install, use the seeded admin — its
@@ -300,7 +312,7 @@ curl -X POST http://localhost:8000/api/auth/login \\
 TOKEN="eyJ..."`}</CodeBlock>
       </DocStep>
 
-      <DocStep n="3" title="Mint an API token for CI">
+      <DocStep n="3" title={t("docs.quickstart.createToken")}>
         <CodeBlock>{`# scope "read" restricts the token to GET/HEAD/OPTIONS; "write" grants
 # your full role. Tokens expire after API_TOKEN_EXPIRE_DAYS (90 default).
 
@@ -312,14 +324,14 @@ curl -X POST http://localhost:8000/api/tokens \\
 # → { "token": "th_...", "expires_at": "..." }   shown once`}</CodeBlock>
       </DocStep>
 
-      <DocStep n="4" title="List your tests">
+      <DocStep n="4" title={t("docs.quickstart.listTests")}>
         <CodeBlock>{`curl http://localhost:8000/api/tests?limit=50&offset=0 \\
   -H "Authorization: Bearer $TOKEN"
 # Pagination: limit/offset (max 1000/page); the X-Total-Count response
 # header carries the total row count for the filtered query.`}</CodeBlock>
       </DocStep>
 
-      <DocStep n="5" title="Create a test">
+      <DocStep n="5" title={t("docs.quickstart.createTest")}>
         <CodeBlock>{`curl -X POST http://localhost:8000/api/tests \\
   -H "Authorization: Bearer $TOKEN" \\
   -H "Content-Type: application/json" \\
@@ -331,7 +343,7 @@ curl -X POST http://localhost:8000/api/tokens \\
   }'`}</CodeBlock>
       </DocStep>
 
-      <DocStep n="6" title="Start a run">
+      <DocStep n="6" title={t("docs.quickstart.startRun")}>
         <CodeBlock>{`curl -X POST http://localhost:8000/api/runs \\
   -H "Authorization: Bearer $TOKEN" \\
   -H "Content-Type: application/json" \\
@@ -343,7 +355,7 @@ curl -X POST http://localhost:8000/api/tokens \\
       </DocStep>
 
       <div style={{ marginTop: 28, padding: "14px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.7 }}>
-        <strong style={{ color: "var(--text)" }}>Python example</strong>
+        <strong style={{ color: "var(--text)" }}>{t("docs.quickstart.pythonExample")}</strong>
         <CodeBlock>{`import httpx
 
 BASE = "http://localhost:8000/api"
@@ -378,15 +390,16 @@ function DocStep({ n, title, children }) {
 /* ── CLI section ──────────────────────────────────────── */
 
 function CliSection() {
+  const { t } = useI18n();
   const [copied, copy] = useCopy();
   const cmds = [
-    { cmd: "thorotest status",    desc: "Server health, current user, test & run counts." },
-    { cmd: "thorotest lint tests/", desc: "Validate YAML test files locally — offline, no token needed." },
-    { cmd: "thorotest sync tests/", desc: "Push local YAML test definitions to the server (idempotent upsert)." },
-    { cmd: "thorotest sync tests/ --dry-run", desc: "Server-side validation: report what would change, persist nothing." },
-    { cmd: "thorotest token create --name ci", desc: "Generate a long-lived API token for CI (admin only)." },
-    { cmd: "thorotest run [--env staging]", desc: "Planned — trigger a run and wait for the result." },
-    { cmd: "thorotest new test",  desc: "Planned — interactive wizard to create a new test case." },
+    { cmd: "thorotest status", desc: "docs.cli.statusDesc" },
+    { cmd: "thorotest lint tests/", desc: "docs.cli.lintDesc" },
+    { cmd: "thorotest sync tests/", desc: "docs.cli.syncDesc" },
+    { cmd: "thorotest sync tests/ --dry-run", desc: "docs.cli.dryRunDesc" },
+    { cmd: "thorotest token create --name ci", desc: "docs.cli.tokenDesc" },
+    { cmd: "thorotest run [--env staging]", desc: "docs.cli.runDesc" },
+    { cmd: "thorotest new test", desc: "docs.cli.newTestDesc" },
   ];
 
   return (
@@ -394,11 +407,11 @@ function CliSection() {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
         <div className="page-title" style={{ fontSize: 18 }}>CLI</div>
         <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-dim)", border: "1px solid var(--border)", borderRadius: 4, padding: "2px 6px" }}>
-          Beta
+          {t("docs.cli.beta")}
         </span>
       </div>
       <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.6 }}>
-        Ships in the repo under <code style={{ fontFamily: "var(--font-mono)" }}>cli/</code> (<code style={{ fontFamily: "var(--font-mono)" }}>npm link</code> to install) — not yet on npm · Requires Node 18+ · Full reference in docs/cli.md
+        {t("docs.cli.introBeforePath")} <code style={{ fontFamily: "var(--font-mono)" }}>cli/</code>{t("docs.cli.introNpmPrefix")}<code style={{ fontFamily: "var(--font-mono)" }}>npm link</code> {t("docs.cli.introAfterNpm")}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {cmds.map(c => (
@@ -406,12 +419,12 @@ function CliSection() {
             key={c.cmd}
             onClick={() => copy(c.cmd, c.cmd)}
             style={{ display: "flex", gap: 16, alignItems: "baseline", padding: "8px 12px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, cursor: "pointer", textAlign: "left", width: "100%", transition: "background 0.1s" }}
-            title="Click to copy"
+            title={t("docs.copy.clickToCopy")}
           >
             <code style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text)", minWidth: 260, flex: 1 }}>{c.cmd}</code>
-            <span style={{ fontSize: 12.5, color: "var(--text-muted)", flex: 1 }}>{c.desc}</span>
+            <span style={{ fontSize: 12.5, color: "var(--text-muted)", flex: 1 }}>{t(c.desc)}</span>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: copied === c.cmd ? "var(--pass)" : "var(--text-dim)", minWidth: 50, textAlign: "right" }}>
-              {copied === c.cmd ? "✓ copied" : "copy"}
+              {copied === c.cmd ? t("docs.copy.copied") : t("docs.copy.copy")}
             </span>
           </button>
         ))}
@@ -423,6 +436,7 @@ function CliSection() {
 /* ── SDKs section ─────────────────────────────────────── */
 
 function SdksSection() {
+  const { t } = useI18n();
   const sdks = [
     {
       lang: "TypeScript / JavaScript",
@@ -475,43 +489,44 @@ run, _   := client.Runs.Create(ctx, &thorotest.CreateRunInput{Name: "CI run"})`,
 /* ── Webhooks section ─────────────────────────────────── */
 
 function WebhooksSection() {
+  const { t } = useI18n();
   const [copied, copy] = useCopy();
   const events = [
-    { name: "run.created",    desc: "A new test run was created." },
-    { name: "run.completed",  desc: "A run finished (passed, failed, or aborted)." },
-    { name: "test.created",   desc: "A new test case was added to the library." },
-    { name: "test.updated",   desc: "A test case was edited or its status changed." },
-    { name: "defect.created", desc: "A defect was linked to a test or run." },
+    { name: "run.created", desc: "docs.webhooks.runCreated" },
+    { name: "run.completed", desc: "docs.webhooks.runCompleted" },
+    { name: "test.created", desc: "docs.webhooks.testCreated" },
+    { name: "test.updated", desc: "docs.webhooks.testUpdated" },
+    { name: "defect.created", desc: "docs.webhooks.defectCreated" },
   ];
 
   return (
     <div style={{ maxWidth: 700 }}>
-      <div className="page-title" style={{ fontSize: 18, marginBottom: 4 }}>Webhooks</div>
+      <div className="page-title" style={{ fontSize: 18, marginBottom: 4 }}>{t("docs.sections.webhooks")}</div>
       <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.6 }}>
-        ThoroTest POSTs a JSON payload to your endpoint on each event. Verify with <code style={{ fontFamily: "var(--font-mono)" }}>X-ThoroTest-Signature</code> (HMAC-SHA256).
+        {t("docs.webhooks.introBeforeSignature")} <code style={{ fontFamily: "var(--font-mono)" }}>X-ThoroTest-Signature</code> {t("docs.webhooks.introAfterSignature")}
       </div>
 
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Events</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{t("docs.webhooks.events")}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           {events.map(e => (
             <button
               key={e.name}
               onClick={() => copy(e.name, e.name)}
               style={{ display: "flex", gap: 16, alignItems: "baseline", padding: "7px 12px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, cursor: "pointer", textAlign: "left", width: "100%" }}
-              title="Click to copy event name"
+              title={t("docs.copy.clickToCopyEvent")}
             >
               <code style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--warn)", minWidth: 180 }}>{e.name}</code>
-              <span style={{ fontSize: 12.5, color: "var(--text-muted)", flex: 1 }}>{e.desc}</span>
+              <span style={{ fontSize: 12.5, color: "var(--text-muted)", flex: 1 }}>{t(e.desc)}</span>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: copied === e.name ? "var(--pass)" : "var(--text-dim)" }}>
-                {copied === e.name ? "✓ copied" : "copy"}
+                {copied === e.name ? t("docs.copy.copied") : t("docs.copy.copy")}
               </span>
             </button>
           ))}
         </div>
       </div>
 
-      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Payload shape</div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{t("docs.webhooks.payloadShape")}</div>
       <CodeBlock>{`{
   "event":   "run.completed",
   "ts":      "2025-05-26T14:03:00Z",
@@ -542,8 +557,11 @@ const RELEASE_GROUP_STYLE = {
 };
 
 function ReleaseCard({ release, isCurrent, defaultOpen }) {
+  const { t, lang } = useI18n();
   const [open, setOpen] = React.useState(defaultOpen);
   const unreleased = release.version === "Unreleased";
+  const releaseDate = release.date && !Number.isNaN(new Date(release.date).getTime())
+    ? new Intl.DateTimeFormat(lang, { dateStyle: "medium" }).format(new Date(release.date)) : release.date;
 
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface)", overflow: "hidden" }}>
@@ -553,20 +571,20 @@ function ReleaseCard({ release, isCurrent, defaultOpen }) {
         aria-expanded={open}
       >
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 13.5, fontWeight: 700, color: "var(--text)" }}>
-          {unreleased ? "Unreleased" : `v${release.version}`}
+          {unreleased ? t("docs.about.unreleased") : `v${release.version}`}
         </span>
         {isCurrent && (
           <span style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 4, padding: "1px 6px" }}>
-            current
+            {t("docs.about.current")}
           </span>
         )}
         {unreleased && (
           <span style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-dim)", border: "1px solid var(--border)", borderRadius: 4, padding: "1px 6px" }}>
-            in development
+            {t("docs.about.inDevelopment")}
           </span>
         )}
         <span style={{ flex: 1 }} />
-        {release.date && <span style={{ fontSize: 11.5, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>{release.date}</span>}
+        {releaseDate && <span style={{ fontSize: 11.5, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>{releaseDate}</span>}
         <Icon name="chev" className="" />
       </button>
 
@@ -581,7 +599,7 @@ function ReleaseCard({ release, isCurrent, defaultOpen }) {
               <div key={si}>
                 {s.title && (
                   <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: st.color, background: st.bg, padding: "2px 7px", borderRadius: 4, marginBottom: 6 }}>
-                    {s.title}
+                    {s.title ? (() => { const key = `docs.about.releaseGroups.${s.title.toLowerCase()}`; const label = t(key); return label === key ? s.title : label; })() : s.title}
                   </span>
                 )}
                 <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 3 }}>
@@ -599,6 +617,7 @@ function ReleaseCard({ release, isCurrent, defaultOpen }) {
 }
 
 function AboutSection() {
+  const { t } = useI18n();
   const [data, setData] = React.useState(null);
   const [err, setErr] = React.useState(null);
 
@@ -606,30 +625,30 @@ function AboutSection() {
     fetch("/api/about", { headers: window.authHeaders() })
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(setData)
-      .catch(() => setErr("Could not load /api/about"));
+      .catch(() => setErr(true));
   }, []);
 
-  if (err) return <div style={{ color: "var(--fail)", fontSize: 13 }}>{err}</div>;
-  if (!data) return <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Loading…</div>;
+  if (err) return <div style={{ color: "var(--fail)", fontSize: 13 }}>{t("docs.about.loadError")}</div>;
+  if (!data) return <div style={{ color: "var(--text-muted)", fontSize: 13 }}>{t("docs.about.loading")}</div>;
 
   const releases = data.releases || [];
 
   return (
     <div style={{ maxWidth: 700 }}>
-      <div className="page-title" style={{ fontSize: 18, marginBottom: 4 }}>About ThoroTest</div>
+      <div className="page-title" style={{ fontSize: 18, marginBottom: 4 }}>{t("docs.about.title")}</div>
       <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.6 }}>
-        Self-hosted test management — manual and automated tests on one timeline.
+        {t("docs.about.subtitle")}
       </div>
 
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, padding: "14px 16px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface)", marginBottom: 22 }}>
-        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Version</span>
+        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t("docs.about.version")}</span>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 20, fontWeight: 700, color: "var(--text)" }}>v{data.version}</span>
       </div>
 
-      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>Changelog</div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>{t("docs.about.changelog")}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {releases.length === 0 && (
-          <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>No changelog available on this install.</div>
+          <div style={{ fontSize: 12.5, color: "var(--text-muted)" }}>{t("docs.about.noChangelog")}</div>
         )}
         {releases.map((rel) => (
           <ReleaseCard
@@ -645,6 +664,7 @@ function AboutSection() {
 }
 
 function Docs() {
+  const { t } = useI18n();
   const [section, setSection] = React.useState("quickstart");
 
   return (
@@ -656,7 +676,7 @@ function Docs() {
         padding: "20px 0",
         display: "flex", flexDirection: "column", gap: 2,
       }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", padding: "0 16px", marginBottom: 6 }}>Docs & API</div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", padding: "0 16px", marginBottom: 6 }}>{t("docs.sections.title")}</div>
         {DOC_SECTIONS.map(s => (
           <button
             key={s.id}
@@ -666,7 +686,7 @@ function Docs() {
             aria-current={section === s.id ? "page" : undefined}
           >
             <Icon name={s.icon} className="nav-icon" />
-            {s.label}
+            {t(s.label)}
           </button>
         ))}
       </div>

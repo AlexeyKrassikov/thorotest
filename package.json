@@ -7,6 +7,8 @@
     "build": "node scripts/build-frontend.mjs",
     "watch": "node scripts/build-frontend.mjs --watch",
     "test": "playwright test",
+    "test:i18n": "node --test scripts/test-i18n-runtime.cjs scripts/test-russian-locale.cjs",
+    "test:i18n:browser": "playwright test --config playwright.i18n.config.ts",
     "test:auth": "playwright test e2e/suite1-auth/",
     "test:nav": "playwright test e2e/suite2-navigation/",
     "test:library": "playwright test e2e/suite3-library/",

@@ -10,6 +10,7 @@ from fastapi import WebSocket
 from . import emailer
 from .db import SessionLocal
 from . import models
+from .localization import notification_entity_label, notification_status, translate
 from .webhook_utils import sign_payload
 from .net_guard import assert_public_http_url, UnsafeURLError
 
@@ -66,7 +67,7 @@ async def _send_email(to_email: str, notif: models.Notification):
         pass  # Fire-and-forget
 
 
-async def _send_slack(webhook_url: str, notif: models.Notification):
+async def _send_slack(webhook_url: str, notif: models.Notification, title: str | None = None):
     try:
         # Re-check at delivery time: the stored URL may pre-date the guard, or
         # its host may have been re-pointed at an internal address since it was
@@ -75,7 +76,7 @@ async def _send_slack(webhook_url: str, notif: models.Notification):
         async with httpx.AsyncClient() as client:
             await client.post(
                 webhook_url,
-                json={"text": f"*{notif.title}*\n{notif.link or ''}"},
+                json={"text": f"*{title or notif.title}*\n{notif.link or ''}"},
                 timeout=5,
             )
     except UnsafeURLError:
@@ -97,10 +98,16 @@ async def _notify_run_events(run_id: str):
         # 1. run_complete: notify all users with notify_run_complete=True
         configs = db.query(models.NotificationConfig).filter_by(notify_run_complete=True).all()
         for cfg in configs:
+            user = db.query(models.User).filter_by(id=cfg.user_id).first()
+            title = translate(
+                "notification.run_complete", user.language if user else "en",
+                name=run.name,
+                status=notification_status(run.status, user.language if user else "en"),
+            )
             notif = models.Notification(
                 user_id=cfg.user_id,
                 event_type="run_complete",
-                title=f"Run '{run.name}' {run.status}",
+                title=title,
                 link=f"#/runs/{run.id}",
                 read=False,
                 created_at=now,
@@ -118,12 +125,13 @@ async def _notify_run_events(run_id: str):
             }))
             # Email delivery (fire-and-forget)
             if cfg.email_enabled and emailer.is_configured():
-                user = db.query(models.User).filter_by(id=cfg.user_id).first()
                 if user and user.email:
                     asyncio.create_task(_send_email(user.email, notif))
             # Slack delivery (fire-and-forget)
             if cfg.slack_enabled and cfg.slack_webhook_url:
-                asyncio.create_task(_send_slack(cfg.slack_webhook_url, notif))
+                asyncio.create_task(_send_slack(
+                    cfg.slack_webhook_url, notif, f"Run '{run.name}' {run.status}",
+                ))
 
         # 2. consecutive_fail: check each failed RunCase's test history
         failed_cases = db.query(models.RunCase).filter_by(run_id=run_id).all()
@@ -147,10 +155,14 @@ async def _notify_run_events(run_id: str):
                 if len(recent) == threshold and all(c.status in ("fail", "blocked") for c in recent):
                     test = db.query(models.Test).filter_by(id=case.test_id).first()
                     test_title = test.title if test else case.test_id
+                    user = db.query(models.User).filter_by(id=cfg.user_id).first()
                     notif = models.Notification(
                         user_id=cfg.user_id,
                         event_type="consecutive_fail",
-                        title=f"'{test_title}' failed {threshold}x in a row",
+                        title=translate(
+                            "notification.consecutive_fail", user.language if user else "en",
+                            title=test_title, count=threshold,
+                        ),
                         link=f"#/runs/{run_id}",
                         read=False,
                         created_at=now,
@@ -233,10 +245,14 @@ async def _notify_comment_event(test_id: str, commenter_username: str):
 
         configs = db.query(models.NotificationConfig).filter_by(notify_comment=True).all()
         for cfg in configs:
+            user = db.query(models.User).filter_by(id=cfg.user_id).first()
             notif = models.Notification(
                 user_id=cfg.user_id,
                 event_type="comment",
-                title=f"{commenter_username} commented on '{test_title}'",
+                title=translate(
+                    "notification.comment", user.language if user else "en",
+                    actor=commenter_username, title=test_title,
+                ),
                 link=f"#/tests/{test_id}",
                 read=False,
                 created_at=now,
@@ -252,11 +268,13 @@ async def _notify_comment_event(test_id: str, commenter_username: str):
                 "created_at": notif.created_at,
             }))
             if cfg.email_enabled and emailer.is_configured():
-                user = db.query(models.User).filter_by(id=cfg.user_id).first()
                 if user and user.email:
                     asyncio.create_task(_send_email(user.email, notif))
             if cfg.slack_enabled and cfg.slack_webhook_url:
-                asyncio.create_task(_send_slack(cfg.slack_webhook_url, notif))
+                asyncio.create_task(_send_slack(
+                    cfg.slack_webhook_url, notif,
+                    f"{commenter_username} commented on '{test_title}'",
+                ))
 
         db.commit()
     except Exception:
@@ -278,7 +296,8 @@ def parse_mentions(text: str) -> List[str]:
 
 
 def _deliver_to_user(db, user: models.User, event_type: str, title: str, link: str,
-                     config_flag: str) -> None:
+                     config_flag: str, message_key: str | None = None,
+                     message_values: dict | None = None) -> None:
     """Create a Notification row for `user`, push over WS, and (if the recipient
     hasn't opted out via `config_flag`) send email through the system SMTP relay.
     Assumes it runs inside a background task with its own session that the caller
@@ -287,6 +306,8 @@ def _deliver_to_user(db, user: models.User, event_type: str, title: str, link: s
     # Default-on: absence of a config row means the user keeps the defaults.
     if cfg is not None and not getattr(cfg, config_flag, True):
         return
+    if message_key:
+        title = translate(message_key, user.language, **(message_values or {}))
     now = datetime.now(timezone.utc).isoformat()
     notif = models.Notification(
         user_id=user.id, event_type=event_type, title=title, link=link,
@@ -323,7 +344,8 @@ async def _notify_mentions(entity_title: str, link: str, text: str,
             _deliver_to_user(
                 db, user, "mention",
                 f"{actor_username} mentioned you on '{entity_title}'",
-                link, "notify_mention",
+                link, "notify_mention", "notification.mention",
+                {"actor": actor_username, "title": entity_title},
             )
         db.commit()
     except Exception:
@@ -360,7 +382,12 @@ async def _notify_assignment(entity_label: str, entity_title: str, link: str,
         _deliver_to_user(
             db, user, "assigned",
             f"{actor_username} assigned you {entity_label} '{entity_title}'",
-            link, "notify_assigned",
+            link, "notify_assigned", "notification.assignment",
+            {
+                "actor": actor_username,
+                "entity": notification_entity_label(entity_label, user.language),
+                "title": entity_title,
+            },
         )
         db.commit()
     except Exception:
