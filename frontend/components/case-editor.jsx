@@ -1,11 +1,8 @@
 function CaseEditor({ test, currentUser, onTestPatch }) {
   const { t } = useI18n();
-  const fields = ["title", "author", "description", "prerequisites", "priority", "type", "status", "folder_id", "tags", "custom_fields"];
-  const [customDefs] = useCustomFieldDefs("test");
+  const fields = ["description", "prerequisites"];
   const [draft, setDraft] = React.useState(test);
-  const [tagsText, setTagsText] = React.useState((test.tags || []).join(", "));
   const [steps, setSteps] = React.useState([]);
-  const [folders, setFolders] = React.useState([]);
   const [selected, setSelected] = React.useState([]);
   const [loaded, setLoaded] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -29,15 +26,11 @@ function CaseEditor({ test, currentUser, onTestPatch }) {
     const data = await workspaceRequest(path);
     const rows = await workspaceRequest(path + "/steps");
     baseline.current = data; baseSteps.current = rows;
-    setDraft(data); setTagsText((data.tags || []).join(", ")); setSteps(decorate(rows)); setDirty(false); setError(""); setConflict(false); setSelected([]); setLoaded(true);
+    setDraft(data); setSteps(decorate(rows)); setDirty(false); setError(""); setConflict(false); setSelected([]); setLoaded(true);
     onTestPatch(data);
   }
   React.useEffect(() => {
     load().catch(e => setError(e.message));
-    workspaceRequest("/folders?project_id=" + encodeURIComponent(test.project_id)).then(rows => {
-      const flatten = list => list.flatMap(f => [f, ...flatten(f.children || [])]);
-      setFolders(flatten(rows));
-    }).catch(e => setError(e.message));
   }, [test.id]);
   React.useEffect(() => {
     const handler = e => { if (dirty || busy) { e.preventDefault(); e.returnValue = ""; } };
@@ -108,12 +101,9 @@ function CaseEditor({ test, currentUser, onTestPatch }) {
     return () => sortable.destroy();
   }, [loaded, editable, busy, conflict, steps]);
   function input(field, multiline = false, options) {
-    const value = field === "tags" ? tagsText : (draft[field] || "");
+    const value = draft[field] || "";
     const props = { className: "input", "aria-label": t("editor." + field), value,
-      disabled: !editable, onChange: e => {
-        if (field === "tags") setTagsText(e.target.value);
-        edit(field, field === "tags" ? e.target.value.split(",").map(s => s.trim()).filter(Boolean) : e.target.value);
-      },
+      disabled: !editable, onChange: e => edit(field, e.target.value),
       onBlur: () => save(), onKeyDown: e => { if (!multiline && e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } } };
     return <label className="editor-field"><span>{t("editor." + field)}</span>{options ? <select {...props}>{options.map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select> : multiline ? <textarea {...props} rows={5} /> : <input {...props} />}</label>;
   }
@@ -124,19 +114,7 @@ function CaseEditor({ test, currentUser, onTestPatch }) {
       <button className="btn" disabled={busy} onClick={() => { if (confirm(t("editor.reloadConfirm"))) load().catch(e => setError(e.message)); }}>{t("editor.reload")}</button>
     </div>}
     {loaded && <>
-      <div className="editor-metadata">
-        {input("title")}{input("author")}
-        {input("folder_id", false, [["", t("cases.library.none")], ...folders.map(f => [f.id, f.name])])}
-        {input("priority", false, ["low", "med", "high"].map(v => [v, t("cases.library." + (v === "med" ? "medium" : v) + "Priority")]))}
-        {input("type", false, ["manual", "automated"].map(v => [v, t("cases.library." + v)]))}
-        {input("status", false, ["pending", "pass", "fail", "skip", "blocked"].map(v => [v, window.TH_I18N.t("status." + v)]))}
-        {input("tags")}
-      </div>
       <div className="editor-text-columns">{input("description", true)}{input("prerequisites", true)}</div>
-      {customDefs.length > 0 && <fieldset disabled={!editable} onBlur={() => save()}>
-        <legend>{t("cases.detail.customFields")}</legend>
-        <CustomFieldsInputs defs={customDefs} values={draft.custom_fields || {}} onChange={value => edit("custom_fields", value)} />
-      </fieldset>}
       <section className="editor-steps">
         <div className="editor-step-toolbar"><h2>{t("editor.steps")} <span className="dim">{steps.length}</span></h2>
           {editable && <>

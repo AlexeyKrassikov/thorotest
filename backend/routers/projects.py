@@ -76,7 +76,8 @@ class MemberInput(BaseModel):
 def members(project_id: str, db: Session = Depends(get_db), user=Depends(get_current_user)):
     require_project_access(db, user, project_id, manage=True)
     rows = db.query(models.ProjectMember, models.User).join(models.User).filter(models.ProjectMember.project_id == project_id).all()
-    return [{"user_id": u.id, "username": u.username, "role": member.role} for member, u in rows]
+    return [{"user_id": u.id, "username": u.username, "display_name": u.display_name,
+             "email": u.email, "role": member.role} for member, u in rows]
 
 
 @router.get("/projects/{project_id}/candidates")

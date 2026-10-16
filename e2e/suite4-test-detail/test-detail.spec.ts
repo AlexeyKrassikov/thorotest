@@ -29,7 +29,7 @@ test.describe('Suite 4 — Test Detail', () => {
     const originalTitle = await page.locator('h1').first().textContent();
 
     // Click on title to edit
-    await page.click('h1[title="Click to edit title"]');
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const input = page.getByLabel('Title', { exact: true });
     await expect(input).toBeVisible({ timeout: 5000 });
 
@@ -38,18 +38,18 @@ test.describe('Suite 4 — Test Detail', () => {
 
     const [response] = await Promise.all([
       page.waitForResponse(r => r.url().includes('/api/tests/TC-2301') && r.request().method() === 'PATCH'),
-      input.press('Enter'),
+      page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click(),
     ]);
 
     expect(response.status()).toBe(200);
     await expect(page.locator('h1').first()).toContainText(newTitle, { timeout: 5000 });
 
     // Restore original title
-    await page.click('h1[title="Click to edit title"]');
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const restoreInput = page.getByLabel('Title', { exact: true });
     await restoreInput.fill(originalTitle!.trim());
-    await restoreInput.press('Enter');
-    await expect(page.getByRole('status')).toContainText('Saved');
+    await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
   // E2E-DET-03 · Change status da TestDetail [P1]
@@ -57,22 +57,24 @@ test.describe('Suite 4 — Test Detail', () => {
     await page.goto('/#/tests/TC-2301');
     await page.waitForURL('**/#/tests/TC-2301', { timeout: 10000 });
 
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const status = page.getByLabel('Status', { exact: true });
     await status.focus();
     const originalStatus = await status.inputValue();
     await status.selectOption(originalStatus === 'fail' ? 'pass' : 'fail');
     const [response] = await Promise.all([
       page.waitForResponse(r => r.url().includes('/api/tests/TC-2301') && r.request().method() === 'PATCH'),
-      status.blur(),
+      page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click(),
     ]);
 
     expect(response.status()).toBe(200);
 
     // Restore
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await status.focus();
     await status.selectOption(originalStatus);
-    await status.blur();
-    await expect(page.getByRole('status')).toContainText('Saved');
+    await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
   // E2E-DET-04 · Elimina test da TestDetail [P1]
@@ -223,15 +225,16 @@ test.describe('Suite 4 — Test Detail', () => {
     await page.goto('/#/tests/TC-2301');
     await page.waitForURL('**/#/tests/TC-2301', { timeout: 10000 });
 
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const status = page.getByLabel('Status', { exact: true });
     await status.focus();
     const originalStatus = await status.inputValue();
     await status.selectOption(originalStatus === 'fail' ? 'pass' : 'fail');
     await Promise.all([
       page.waitForResponse(r => r.url().includes('/api/tests/TC-2301') && r.request().method() === 'PATCH'),
-      status.blur(),
+      page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click(),
     ]);
-    await expect(page.getByRole('status')).toContainText('Saved');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
 
     // Open Changes tab — expect the history endpoint + a rendered entry
     const [response] = await Promise.all([
@@ -248,10 +251,11 @@ test.describe('Suite 4 — Test Detail', () => {
 
     // Restore
     await page.locator('.tab').filter({ hasText: /^Definition$/ }).click();
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await status.focus();
     await status.selectOption(originalStatus);
-    await status.blur();
-    await expect(page.getByRole('status')).toContainText('Saved');
+    await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
 });

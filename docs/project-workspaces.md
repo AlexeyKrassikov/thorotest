@@ -9,6 +9,10 @@ remembered separately for each account in the browser.
 An administrator creates projects in **Settings > Projects**. Open a project's
 editor to add existing, approved users as collaborators:
 
+Collaborators appear in the same user table used by Administration: display
+name, email, username, project role and removal action. Membership changes save
+immediately; the project name and description use the separate Save button.
+
 | Project role | Permissions |
 | --- | --- |
 | Owner | Edit project settings, manage collaborators, edit folders and cases |
@@ -27,12 +31,20 @@ create button. The new folder belongs to the selected project and is immediately
 selected. The author defaults to your username and can be changed. This label
 does not change the authenticated actor recorded in the audit history.
 
-The case's **Definition** tab edits the title, author, folder, priority, type,
-status, tags, description, prerequisites and configured custom fields.
+In **Settings > Folders**, choose **Folder project** before creating a root
+folder. The list and any new folders belong to that project; nested folders
+inherit it. This selector does not move existing folders between projects.
+
+The case title and ID remain in the header, with attributes in the right-hand
+Details panel. **Edit**, next to **Delete**, opens the same form as case creation
+to change the title, author, folder, priority, type, status, tags and configured
+custom fields. The ID is read-only. **Save** applies these changes; cancelling
+discards the draft after confirmation. Conflicts and save errors retain it.
+Description, prerequisites and steps remain editable in the **Definition** tab.
 Description and prerequisites sit above the steps, side by side on wide screens
 and stacked on narrow screens.
 
-Edits save when a field loses focus. Enter saves single-line fields; Enter in a
+Description, prerequisite and step edits save when a field loses focus. Enter in a
 multiline field inserts a newline. The save indicator shows pending, saving and
 saved states. On failure the local draft remains available for retry. If another
 editor has changed the case, reload the server version before retrying; reloading

@@ -15,10 +15,12 @@ test('project case editor saves fields, steps, ordering and history', async ({ p
   expect(created.ok()).toBeTruthy();
   const tc = await created.json();
   await page.goto(`/#/tests/${tc.id}`);
+  await expect(page.locator('.case-editor').getByLabel('Title', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(page.getByLabel('Author', { exact: true })).toHaveValue('marco');
   await page.getByLabel('Tags', { exact: true }).pressSequentially('smoke, auth');
-  await page.getByLabel('Tags', { exact: true }).press('Enter');
-  await expect(page.getByRole('status')).toContainText('Saved');
+  await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   expect((await (await page.request.get(`/api/tests/${tc.id}`, { headers })).json()).tags).toEqual(['smoke', 'auth']);
 
   // A failed save must retain the draft and offer an explicit retry.
@@ -83,7 +85,7 @@ test('project case editor saves fields, steps, ordering and history', async ({ p
   await expect(page.getByLabel('Description', { exact: true })).toHaveValue('Conflicting draft');
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name: 'Reload server version', exact: true }).click();
-  await expect(page.getByLabel('Author', { exact: true })).toHaveValue('Another editor');
+  await expect(page.locator('.case-heading')).toContainText('Another editor');
 
   await page.goto('/#/settings');
   const textSize = page.getByRole('slider', { name: 'Text size', exact: true });
@@ -105,7 +107,7 @@ test('project case editor saves fields, steps, ordering and history', async ({ p
   await page.request.put('/api/me', { headers, data: { appearance: { textSize: 14, scale: 100, density: 'compact' } } });
 });
 
-test('project editor manages collaborator roles', async ({ page }) => {
+test('project editor manages collaborator roles', async ({ page }, info) => {
   const login = await page.request.post('/api/auth/login', { data: { email: 'marco@acme.com', password: 'demo123' } });
   const { access_token: token, user } = await login.json();
   const headers = { Authorization: `Bearer ${token}` };
@@ -125,10 +127,80 @@ test('project editor manages collaborator roles', async ({ page }) => {
   await picker.selectOption(candidate.id);
   await page.getByLabel('Role', { exact: true }).selectOption('editor');
   await page.getByTitle('Add collaborator', { exact: true }).click();
+  await expect(page.locator('.project-members table').getByRole('row').filter({ hasText: candidate.name })).toHaveCount(1);
   const member = page.getByLabel(candidate.name, { exact: true });
   await expect(member).toHaveValue('editor');
   await member.selectOption('viewer');
   await expect(member).toBeEnabled();
   const members = await (await page.request.get(`/api/projects/${id}/members`, { headers })).json();
   expect(members.find((m: any) => String(m.user_id) === candidate.id).role).toBe('viewer');
+  await page.screenshot({ path: info.outputPath('project-members.png'), fullPage: true });
+  await page.reload();
+  await page.locator('.settings-nav').getByRole('button', { name: 'Projects', exact: true }).click();
+  await page.locator('.card').filter({ hasText: id }).getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(page.getByLabel(candidate.name, { exact: true })).toHaveValue('viewer');
+});
+
+test('Russian edit dialog translates statuses, cancels drafts and reports conflicts', async ({ page }, info) => {
+  const login = await page.request.post('/api/auth/login', { data: { email: 'marco@acme.com', password: 'demo123' } });
+  const { access_token: token, user } = await login.json();
+  const headers = { Authorization: `Bearer ${token}` };
+  const id = `modal-${Date.now()}`;
+  await page.request.post('/api/projects', { headers, data: { id, name: id } });
+  const tc = await (await page.request.post('/api/tests', { headers, data: { auto_id: true, title: 'Original title', project_id: id } })).json();
+  await page.addInitScript(({ token, user, id }) => {
+    localStorage.setItem('th_token', token); localStorage.setItem('th_lang', 'ru'); localStorage.setItem('th_project_' + user.id, id);
+  }, { token, user, id });
+  await page.goto(`/#/tests/${tc.id}`);
+  await expect(page.locator('h1')).toHaveText('Original title');
+  await page.evaluate(() => (window as any).TH_I18N.setLanguage('ru'));
+  await page.getByRole('button', { name: 'Изменить', exact: true }).click();
+  const modal = page.getByRole('dialog');
+  await expect(modal.getByLabel('Статус').locator('option')).toHaveText(['ОЖИДАЕТ', 'УСПЕХ', 'ОШИБКА', 'ПРОПУЩЕН', 'БЛОКИРОВКА']);
+  await modal.getByLabel('Название', { exact: true }).fill('Discarded title');
+  page.once('dialog', dialog => dialog.accept());
+  await modal.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await expect(page.locator('h1')).toHaveText('Original title');
+  await page.getByRole('button', { name: 'Изменить', exact: true }).click();
+  await modal.getByLabel('Название', { exact: true }).fill('Saved title');
+  await modal.getByLabel('Статус').selectOption('pass');
+  await modal.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.locator('h1')).toHaveText('Saved title');
+  await expect(page.locator('.case-attributes')).toContainText('УСПЕХ');
+  await page.reload();
+  await expect(page.locator('h1')).toHaveText('Saved title');
+  await page.evaluate(() => (window as any).TH_I18N.setLanguage('ru'));
+  await page.getByRole('button', { name: 'Изменить', exact: true }).click();
+  await modal.getByLabel('Название', { exact: true }).fill('Conflicting title');
+  await page.request.patch(`/api/tests/${tc.id}`, { headers, data: { title: 'External title' } });
+  await modal.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(modal.getByRole('alert')).toContainText('изменён другим пользователем');
+  await expect(modal.getByLabel('Название', { exact: true })).toHaveValue('Conflicting title');
+  await page.screenshot({ path: info.outputPath('edit-dialog-ru.png'), fullPage: true });
+  page.once('dialog', dialog => dialog.accept());
+  await modal.getByRole('button', { name: 'Загрузить версию с сервера', exact: true }).click();
+  await expect(modal).toHaveCount(0);
+  await expect(page.locator('h1')).toHaveText('External title');
+});
+
+test('folder creation uses the explicitly selected project', async ({ page }) => {
+  const login = await page.request.post('/api/auth/login', { data: { email: 'marco@acme.com', password: 'demo123' } });
+  const { access_token: token, user } = await login.json();
+  const headers = { Authorization: `Bearer ${token}` };
+  const first = `folders-a-${Date.now()}`, second = `folders-b-${Date.now()}`;
+  for (const id of [first, second]) await page.request.post('/api/projects', { headers, data: { id, name: id } });
+  await page.addInitScript(({ token, user, first }) => {
+    localStorage.setItem('th_token', token); localStorage.setItem('th_lang', 'en'); localStorage.setItem('th_project_' + user.id, first);
+  }, { token, user, first });
+  await page.goto('/#/settings');
+  await page.locator('.settings-nav').getByRole('button', { name: 'Folders', exact: true }).click();
+  await page.getByLabel('Folder project', { exact: true }).selectOption(second);
+  await page.getByRole('button', { name: /New root folder/ }).click();
+  await page.locator('.settings-content input').fill('Only in second project');
+  await page.locator('.settings-content').getByRole('button', { name: /Save/, exact: true }).click();
+  await expect(page.locator('.settings-content')).toContainText('Only in second project');
+  const folders = await (await page.request.get(`/api/folders?project_id=${second}`, { headers })).json();
+  expect(folders.find((f: any) => f.name === 'Only in second project').project_id).toBe(second);
+  await page.getByLabel('Folder project', { exact: true }).selectOption(first);
+  await expect(page.locator('.settings-content')).not.toContainText('Only in second project');
 });

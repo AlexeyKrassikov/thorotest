@@ -1,5 +1,5 @@
-async function workspaceRequest(path, method = "GET", data) {
-  const response = await fetch("/api" + path, { method, headers: window.authHeaders(), body: data === undefined ? undefined : JSON.stringify(data) });
+async function workspaceRequest(path, method = "GET", data, headers = {}) {
+  const response = await fetch("/api" + path, { method, headers: { ...window.authHeaders(), ...headers }, body: data === undefined ? undefined : JSON.stringify(data) });
   if (!response.ok) {
     const result = await response.json().catch(() => ({}));
     const error = new Error(typeof result.detail === "string" ? result.detail : window.TH_I18N.t("api.requestFailed"));
@@ -60,6 +60,21 @@ function ProjectSelector({ currentUser, onReady, onChanging }) {
 }
 window.ProjectSelector = ProjectSelector;
 
+function UserTable({ users, renderRole, renderStatus, renderActions }) {
+  const { t } = useI18n();
+  return <div className="user-table-scroll"><table className="user-table">
+    <thead><tr>
+      <th>{t("common.name")}</th><th>{t("login.email")}</th><th>{t("workspace.admin.username")}</th>
+      <th>{t("admin.role")}</th>{renderStatus && <th>{t("workspace.security.status")}</th>}<th>{t("workspace.admin.actions")}</th>
+    </tr></thead>
+    <tbody>{users.map(user => <tr key={user.id}>
+      <td>{user.display_name || "—"}</td><td>{user.email || "—"}</td><td>{user.username}</td>
+      <td>{renderRole(user)}</td>{renderStatus && <td>{renderStatus(user)}</td>}<td>{renderActions(user)}</td>
+    </tr>)}</tbody>
+  </table></div>;
+}
+window.UserTable = UserTable;
+
 function ProjectMembers({ projectId }) {
   const { t } = useI18n();
   const [members, setMembers] = React.useState([]);
@@ -68,24 +83,25 @@ function ProjectMembers({ projectId }) {
   const [role, setRole] = React.useState("viewer");
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
   const base = "/projects/" + encodeURIComponent(projectId);
   async function load() { setMembers(await workspaceRequest(base + "/members")); }
-  React.useEffect(() => { load().catch(e => setError(e.message)); workspaceRequest(base + "/candidates").then(setCandidates).catch(e => setError(e.message)); }, [projectId]);
+  React.useEffect(() => { setLoading(true); load().catch(e => setError(e.message)).finally(() => setLoading(false)); workspaceRequest(base + "/candidates").then(setCandidates).catch(e => setError(e.message)); }, [projectId]);
   async function change(id, next) {
     setBusy(true); setError("");
     try {
       await workspaceRequest(base + "/members/" + id, next ? "PUT" : "DELETE", next ? { role: next } : undefined);
       await load();
+      setSelected("");
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
   const roles = ["owner", "editor", "viewer"];
   return <section className="project-members"><h3>{t("editor.collaborators")}</h3>
-    {members.map(member => <div className="member-row" key={member.user_id}>
-      <span>{member.username}</span>
-      <select className="input" aria-label={member.username} value={member.role} disabled={busy} onChange={e => change(member.user_id, e.target.value)}>{roles.map(r => <option key={r} value={r}>{t("editor." + r)}</option>)}</select>
-      <button className="btn icon" title={t("editor.removeMember")} disabled={busy} onClick={() => { if (confirm(t("editor.removeMemberConfirm"))) change(member.user_id, null); }}><Icon name="x" /></button>
-    </div>)}
+    {loading ? <p role="status">{t("common.loading")}</p> : members.length ? <UserTable users={members.map(m => ({ ...m, id: m.user_id }))}
+      renderRole={member => <select className="input" aria-label={member.username} value={member.role} disabled={busy} onChange={e => change(member.user_id, e.target.value)}>{roles.map(r => <option key={r} value={r}>{t("editor." + r)}</option>)}</select>}
+      renderActions={member => <button className="btn icon" title={t("editor.removeMember")} disabled={busy} onClick={() => { if (confirm(t("editor.removeMemberConfirm"))) change(member.user_id, null); }}><Icon name="x" /></button>}
+    /> : <p className="dim">{t("editor.noMembers")}</p>}
     <div className="member-row">
       <select className="input" aria-label={t("editor.collaborator")} value={selected} onChange={e => setSelected(e.target.value)}><option value="">{t("editor.collaborator")}</option>{candidates.filter(u => !members.some(m => m.user_id === u.id)).map(u => <option key={u.id} value={u.id}>{u.username}</option>)}</select>
       <select className="input" aria-label={t("editor.role")} value={role} onChange={e => setRole(e.target.value)}>{roles.map(r => <option key={r} value={r}>{t("editor." + r)}</option>)}</select>

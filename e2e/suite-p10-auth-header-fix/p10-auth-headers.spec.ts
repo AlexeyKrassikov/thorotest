@@ -158,7 +158,7 @@ test.describe('Suite P10 — Auth Header Fix', () => {
     await page.waitForTimeout(1000);
 
     // Click on the h1 title to enter edit mode (cursor: text)
-    await page.click('h1[title="Click to edit title"]');
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const title = page.getByLabel('Title', { exact: true });
     await title.fill('P10 title save updated');
 
@@ -168,7 +168,7 @@ test.describe('Suite P10 — Auth Header Fix', () => {
         resp => resp.url().includes(`/api/tests/${created.id}`) && resp.request().method() === 'PATCH',
         { timeout: 15000 }
       ),
-      title.press('Enter'),
+      page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click(),
     ]);
 
     expect(response.status()).toBe(200);

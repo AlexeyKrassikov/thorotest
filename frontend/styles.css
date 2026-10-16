@@ -1258,7 +1258,21 @@ a { color: inherit; text-decoration: none; }
 .member-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
 .member-row > span, .member-row > input { flex:1; min-width:120px; overflow-wrap:anywhere; }
 .member-row select { width:auto; max-width:100%; }
-.case-editor { padding:18px 22px 32px; max-width:1500px; margin:auto; }
+.case-editor { padding:0; min-width:0; }
+.case-definition-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(240px,300px); gap:24px; padding:18px 22px 32px; align-items:start; }
+.case-attributes { display:flex; flex-direction:column; gap:14px; padding:18px; border:1px solid var(--border); border-radius:8px; min-width:0; }
+.case-attributes h2 { margin:0 0 8px; font-size:1rem; }
+.case-attributes > div { overflow-wrap:anywhere; }
+.case-tags { display:flex; flex-wrap:wrap; gap:4px; }
+.user-table-scroll { max-width:100%; overflow-x:auto; margin-bottom:16px; }
+.user-table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+.user-table th, .user-table td { padding:10px 12px; text-align:left; border-bottom:1px solid var(--border); overflow-wrap:anywhere; }
+.user-table th { color:var(--text-muted); font-weight:500; white-space:nowrap; }
+.user-table td .input { min-width:110px; }
+.project-settings-editor { padding:20px 0; margin-bottom:24px; border-block:1px solid var(--border); }
+.project-settings-editor > .field { max-width:560px; }
+.folder-project-picker { max-width:360px; margin-bottom:16px; }
+@media(max-width:1100px) { .case-definition-layout { grid-template-columns:minmax(0,1fr); } }
 .app { height:calc(100dvh / var(--user-scale, 1)); }
 .editor-save-state { min-height:24px; color:var(--text-muted); font-size:13px; }
 .editor-error { display:flex; flex-wrap:wrap; align-items:center; gap:10px; color:var(--fail); padding:12px 0; }

@@ -258,7 +258,7 @@ function ProjectsTab({ currentUser }) {
       </div>
 
       {(creating || editing) && (
-        <div className="card" style={{ padding: 16, marginBottom: 16, maxWidth: 480 }}>
+        <section className="project-settings-editor">
           <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12 }}>{creating ? t("settings.projectsSection.newTitle") : t("settings.projectsSection.editTitle")}</div>
           <Field label={t("common.name")}>
             <TextInput value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} placeholder={t("settings.projectsSection.namePlaceholder")} />
@@ -266,13 +266,13 @@ function ProjectsTab({ currentUser }) {
           <Field label={t("common.description")}>
             <TextInput value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} placeholder={t("settings.projectsSection.descPlaceholder")} />
           </Field>
-          {editing && <ProjectMembers projectId={editing} />}
           {saveErr && <div style={{ fontSize: 12, color: "var(--fail)", marginBottom: 8 }}>{saveErr}</div>}
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn primary" onClick={save} disabled={saving}>{saving ? t("common.saving") : t("common.save")}</button>
             <button className="btn" onClick={closeForm}>{t("common.cancel")}</button>
           </div>
-        </div>
+          {editing && <ProjectMembers key={editing} projectId={editing} />}
+        </section>
       )}
 
       {projects.length === 0 ? (
@@ -490,16 +490,24 @@ function FoldersTab() {
   const [formName, setFormName]   = useState("");
   const [saving, setSaving]       = useState(false);
   const [saveErr, setSaveErr]     = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [projectId, setProjectId] = useState(window.TH_PROJECT?.id || "");
+  const loadVersion = React.useRef(0);
+  const headers = { "X-Project-ID": projectId };
 
   const reload = () => {
+    const version = ++loadVersion.current;
+    if (!projectId) { setFolders([]); setLoading(false); return; }
     setLoading(true);
-    window.TH_API.getFolders()
-      .then(setFolders)
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
+    setError(null);
+    workspaceRequest("/folders?project_id=" + encodeURIComponent(projectId), "GET", undefined, headers)
+      .then(rows => { if (loadVersion.current === version) setFolders(rows); })
+      .catch(e => { if (loadVersion.current === version) setError(e.message); })
+      .finally(() => { if (loadVersion.current === version) setLoading(false); });
   };
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => { workspaceRequest("/projects").then(setProjects).catch(e => setError(e.message)); }, []);
+  useEffect(() => { reload(); cancelForm(); }, [projectId]);
 
   const startCreate = (parentId) => { setCreating(parentId); setRenaming(null); setFormName(""); setSaveErr(null); };
   const startRename = (f)        => { setRenaming(f.id); setCreating(null); setFormName(f.name); setSaveErr(null); };
@@ -510,10 +518,11 @@ function FoldersTab() {
     setSaving(true); setSaveErr(null);
     try {
       const id = "f-" + Date.now();
-      await window.TH_API.createFolder({
+      await workspaceRequest("/folders", "POST", {
         id, name: formName.trim(),
         parent_id: creating === "root" ? null : creating,
-      });
+        project_id: projectId,
+      }, headers);
       reload();
       cancelForm();
     } catch (e) { setSaveErr(e.message); }
@@ -524,7 +533,7 @@ function FoldersTab() {
     if (!formName.trim()) { setSaveErr(t("common.nameRequired")); return; }
     setSaving(true); setSaveErr(null);
     try {
-      await window.TH_API.updateFolder(renaming, { name: formName.trim() });
+      await workspaceRequest("/folders/" + encodeURIComponent(renaming), "PATCH", { name: formName.trim() }, headers);
       reload();
       cancelForm();
     } catch (e) { setSaveErr(e.message); }
@@ -534,7 +543,7 @@ function FoldersTab() {
   const remove = async (id) => {
     if (!window.confirm(t("settings.foldersSection.deleteConfirm"))) return;
     try {
-      await window.TH_API.deleteFolder(id);
+      await workspaceRequest("/folders/" + encodeURIComponent(id), "DELETE", undefined, headers);
       reload();
     } catch (e) { alert(e.message); }
   };
@@ -546,8 +555,14 @@ function FoldersTab() {
 
   return (
     <SettingSection title={t("settings.foldersSection.title")} sub={t("settings.foldersSection.sub")}>
+      <label className="editor-field folder-project-picker"><span>{t("editor.folderProject")}</span>
+        <select className="input" aria-label={t("editor.folderProject")} value={projectId} disabled={saving} onChange={e => setProjectId(e.target.value)}>
+          <option value="">{t("editor.chooseProject")}</option>
+          {projects.map(p => <option value={p.id} key={p.id}>{p.name}</option>)}
+        </select>
+      </label>
       <div style={{ marginBottom: 12 }}>
-        <button className="btn" onClick={() => startCreate("root")}><Icon name="plus" /> {t("settings.foldersSection.newRootBtn")}</button>
+        <button className="btn" disabled={!projectId} onClick={() => startCreate("root")}><Icon name="plus" /> {t("settings.foldersSection.newRootBtn")}</button>
       </div>
       {creating === "root" && (
         <div style={{ marginBottom: 8 }}>

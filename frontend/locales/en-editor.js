@@ -1,6 +1,8 @@
 window.TH_LOCALES.en.editor = {
   project: "Project", chooseProject: "Select a project", manageProjects: "Manage projects",
+  edit: "Edit",
   collaborators: "Collaborators", collaborator: "Select a user", role: "Role",
+  noMembers: "No collaborators", saveContentFirst: "Finish saving the description and steps before editing attributes.", folderProject: "Folder project",
   owner: "Owner", editor: "Editor", viewer: "Viewer", addMember: "Add collaborator",
   removeMember: "Remove collaborator", removeMemberConfirm: "Remove this collaborator's access?",
   author: "Author", newFolder: "New folder name", createFolder: "Create folder",

@@ -5,14 +5,17 @@ function TestDetail({ testId, onBack, currentUser }) {
   const [test, setTest] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [tab, setTab] = useState("definition");
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editFolders, setEditFolders] = useState([]);
+  const [editError, setEditError] = useState("");
+  const [editorVersion, setEditorVersion] = useState(0);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const deleteModal = useModal(() => setDeleteConfirm(false), { open: deleteConfirm });
   const [saving, setSaving] = useState(false);
   const [defectCount, setDefectCount] = useState(null);
   const [reqCount, setReqCount] = useState(null);
+  const [customDefs] = useCustomFieldDefs("test");
   const changeTab = next => {
     if (next !== tab && window.TH_EDITOR_DIRTY && !confirm(t("editor.leaveConfirm"))) return;
     setTab(next);
@@ -45,19 +48,17 @@ function TestDetail({ testId, onBack, currentUser }) {
       .catch(() => {});
   }, [test?.id]);
 
-  const saveTitle = async () => {
-    if (!titleDraft.trim() || titleDraft === test.title) { setEditingTitle(false); return; }
+  const openEdit = async () => {
+    if (window.TH_EDITOR_DIRTY) { setEditError(t("editor.saveContentFirst")); return; }
     setSaving(true);
+    setEditError("");
     try {
-      await fetch(`/api/tests/${test.id}`, {
-        method: "PATCH",
-        headers: { ...window.authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ title: titleDraft.trim() }),
-      });
-      setTest(t => ({ ...t, title: titleDraft.trim() }));
-    } catch (e) {}
-    setEditingTitle(false);
-    setSaving(false);
+      const folders = await workspaceRequest("/folders?project_id=" + encodeURIComponent(test.project_id));
+      const flatten = rows => rows.flatMap(f => [f, ...flatten(f.children || [])]);
+      setEditFolders(flatten(folders));
+      setEditing(true);
+    } catch (e) { setEditError(e.message); }
+    finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -65,6 +66,8 @@ function TestDetail({ testId, onBack, currentUser }) {
     try { await workspaceRequest(`/tests/${encodeURIComponent(test.id)}`, "DELETE"); onBack(); }
     catch (e) { setDeleteError(e.message); }
   };
+  const flattenFolders = rows => rows.flatMap(folder => [folder, ...flattenFolders(folder.children || [])]);
+  const folderName = [...editFolders, ...flattenFolders(window.TH_DATA?.folders || [])].find(folder => folder.id === test?.folder_id)?.name;
 
   if (loading) return (
     <div style={{display:"flex", height:"100%", alignItems:"center", justifyContent:"center"}}>
@@ -96,32 +99,7 @@ function TestDetail({ testId, onBack, currentUser }) {
               {test.auto ? <span className="tag" style={{color:"var(--info)", borderColor:"oklch(from var(--info) l c h / 0.3)"}}>{t("cases.detail.automated")} · {test.runner}</span> : <span className="tag">{t("cases.detail.manual")}</span>}
               {test.tags.map(tg => <span key={tg} className="tag">{tg}</span>)}
             </div>
-            {editingTitle ? (
-              <div style={{display:"flex", alignItems:"center", gap:8, marginBottom:4}}>
-                <input
-                  className="input"
-                  style={{fontSize:20, fontWeight:600, flex:1}}
-                  value={titleDraft}
-                  autoFocus
-                  onChange={e => setTitleDraft(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") saveTitle(); if (e.key === "Escape") setEditingTitle(false); }}
-                />
-                <button className="btn sm accent" onClick={saveTitle} disabled={saving}>{t("cases.detail.save")}</button>
-                <button className="btn sm" onClick={() => setEditingTitle(false)}>{t("cases.detail.cancel")}</button>
-              </div>
-            ) : (
-              window.can && window.can(currentUser, "write") ? (
-                <h1
-                  style={{fontSize:22, fontWeight:600, letterSpacing:"-0.02em", margin:"0 0 4px", lineHeight:1.25, cursor:"text"}}
-                  title={t("cases.detail.clickEdit")}
-                  onClick={() => { setTab("definition"); setTimeout(() => document.querySelector('.case-editor input')?.focus(), 0); }}
-                >{test.title}</h1>
-              ) : (
-                <h1
-                  style={{fontSize:22, fontWeight:600, letterSpacing:"-0.02em", margin:"0 0 4px", lineHeight:1.25}}
-                >{test.title}</h1>
-              )
-            )}
+            <h1 style={{fontSize:22, fontWeight:600, letterSpacing:0, margin:"0 0 4px", lineHeight:1.25}}>{test.title}</h1>
             <div style={{fontSize:12.5, color:"var(--text-muted)", display:"flex", flexWrap:"wrap", alignItems:"center", gap:10}}>
               <span className="mono">{test.id}</span>
               <span className="dim">·</span>
@@ -131,11 +109,13 @@ function TestDetail({ testId, onBack, currentUser }) {
             </div>
           </div>
           <div style={{display:"flex", gap:6}}>
+            {window.can(currentUser, "write") && <button className="btn" disabled={saving} onClick={openEdit}>{t("editor.edit")}</button>}
             {window.can && window.can(currentUser, "delete") && (
               <button className="btn" style={{color:"var(--fail)"}} onClick={() => setDeleteConfirm(true)}><Icon name="x" /> {t("cases.detail.delete")}</button>
             )}
           </div>
         </div>
+        {editError && <p role="alert">{editError}</p>}
       </div>
 
       {/* Tabs */}
@@ -150,7 +130,23 @@ function TestDetail({ testId, onBack, currentUser }) {
       </div>
 
       <div className="case-detail-body" style={{overflowY:"auto", flex:1}}>
-        {tab === "definition" && <CaseEditor key={test.id} test={test} currentUser={currentUser} onTestPatch={patch => setTest(t => ({...t, ...patch}))} />}
+        {tab === "definition" && <div className="case-definition-layout">
+          <CaseEditor key={test.id + ":" + editorVersion} test={test} currentUser={currentUser} onTestPatch={patch => setTest(t => ({...t, ...patch}))} />
+          <aside className="case-attributes">
+            <h2>{t("cases.detail.details")}</h2>
+            <Detail label={t("editor.project")} value={window.TH_PROJECT?.name || test.project_id} />
+            <Detail label={t("editor.folder_id")} value={test.folder_id ? folderName || test.folder_id : t("cases.library.none")} />
+            <Detail label={t("cases.detail.type")} value={t("cases.library." + test.type)} />
+            <Detail label={t("cases.detail.priorityLabel")} value={t(`cases.library.${test.priority === "med" ? "medium" : test.priority}Priority`)} />
+            <Detail label={t("cases.detail.status")} value={<StatusBadge s={test.status} />} />
+            <Detail label={t("editor.author")} value={test.author || t("cases.detail.unassigned")} />
+            <Detail label={t("cases.detail.owner")} value={test.owner || t("cases.detail.unassigned")} />
+            <Detail label={t("cases.detail.lastRun")} value={test.last_run_at ? new Date(test.last_run_at).toLocaleString(lang) : "—"} />
+            <Detail label={t("cases.detail.updated")} value={test.updated_at ? new Date(test.updated_at).toLocaleString(lang) : "—"} />
+            <Detail label={t("cases.detail.tags")} value={<span className="case-tags">{test.tags.map(tag => <span className="tag" key={tag}>{tag}</span>)}</span>} />
+            <CustomFieldsDisplay defs={customDefs} values={test.custom_fields || {}} />
+          </aside>
+        </div>}
         {tab === "definition" && test.source_path && <YamlSourceCard test={test} readOnly={!window.can(currentUser, "write")} onPushed={patch => setTest(t => ({...t, ...patch}))} />}
         {tab === "history" && <HistoryTab test={test} />}
         {tab === "defects" && <DefectsTab test={test} currentUser={currentUser} />}
@@ -160,6 +156,7 @@ function TestDetail({ testId, onBack, currentUser }) {
         {tab === "git" && <GitHistoryTab test={test} />}
       </div>
 
+      {editing && <NewTestModal test={test} folders={editFolders} currentUser={currentUser} onClose={() => setEditing(false)} onCreate={(data, folders) => { setTest(data); if (folders) setEditFolders(folders); setEditorVersion(v => v + 1); }} />}
       {deleteConfirm && (
         <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...deleteModal.overlayProps}>
           <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:400}} {...deleteModal.dialogProps}>

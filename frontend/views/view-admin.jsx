@@ -135,24 +135,7 @@ function AdminPage({ currentUser, onNav }) {
                 </form>
               )}
 
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                    <th style={{ padding: "8px 12px" }}>{t("common.name")}</th>
-                    <th style={{ padding: "8px 12px" }}>{t("login.email")}</th>
-                    <th style={{ padding: "8px 12px" }}>{t("workspace.admin.username")}</th>
-                    <th style={{ padding: "8px 12px" }}>{t("admin.role")}</th>
-                    <th style={{ padding: "8px 12px" }}>{t("workspace.security.status")}</th>
-                    <th style={{ padding: "8px 12px" }}>{t("workspace.admin.actions")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map(user => (
-                    <tr key={user.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "8px 12px" }}>{user.display_name || "—"}</td>
-                      <td style={{ padding: "8px 12px" }}>{user.email}</td>
-                      <td style={{ padding: "8px 12px" }}>{user.username}</td>
-                      <td style={{ padding: "8px 12px" }}>
+              <UserTable users={users} renderRole={user => (
                         <select
                           value={user.role}
                           onChange={e => handleRoleChange(user.id, e.target.value)}
@@ -161,9 +144,8 @@ function AdminPage({ currentUser, onNav }) {
                         >
                           {ROLES.map(r => <option key={r} value={r}>{t(`workspace.roles.${r}`)}</option>)}
                         </select>
-                      </td>
-                      <td style={{ padding: "8px 12px" }}>{t(`workspace.security.${user.account_status || "active"}`)}</td>
-                      <td style={{ padding: "8px 12px" }}>
+                )} renderStatus={user => t(`workspace.security.${user.account_status || "active"}`)} renderActions={user => (
+                    <>
                         {user.id !== currentUser?.id && (
                           <>
                           {user.account_status !== "active" && <button className="btn sm" onClick={() => setStatus(user, "active")}>{t("workspace.security.approve")}</button>}
@@ -176,11 +158,8 @@ function AdminPage({ currentUser, onNav }) {
                           </button>
                           </>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </>
+                )} />
             </>
           )}
         </div>

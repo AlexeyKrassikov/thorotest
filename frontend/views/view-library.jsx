@@ -559,19 +559,26 @@ function Library({ onNav, onOpenTest, currentUser }) {
   );
 }
 
-function NewTestModal({ folders, defaultFolderId, onClose, onCreate, currentUser }) {
+function NewTestModal({ folders, defaultFolderId, onClose, onCreate, currentUser, test }) {
   const { t } = useI18n();
   const [autoId, setAutoId] = useState(false);
   const [form, setForm] = useState({
-    id: "", title: "", folder_id: defaultFolderId || "", type: "manual", priority: "med", author: currentUser?.username || "", tags: ""
+    id: test?.id || "", title: test?.title || "", folder_id: test?.folder_id || defaultFolderId || "", type: test?.type || "manual", priority: test?.priority || "med", author: test?.author ?? currentUser?.username ?? "", tags: (test?.tags || []).join(", "), status: test?.status || "pending"
   });
   const [folderOptions, setFolderOptions] = useState(folders);
   const [folderName, setFolderName] = useState("");
-  const [customFields, setCustomFields] = useState({});
+  const [customFields, setCustomFields] = useState(test?.custom_fields || {});
   const [cfDefs] = useCustomFieldDefs("test");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState(null);
-  const modal = useModal(onClose, { labelledBy: "new-test-title" });
+  const [conflict, setConflict] = useState(false);
+  const initial = React.useRef({ form, customFields });
+  const close = () => {
+    if (saving) return;
+    const dirty = JSON.stringify({ form, customFields }) !== JSON.stringify(initial.current);
+    if (!test || !dirty || confirm(t("editor.reloadConfirm"))) onClose();
+  };
+  const modal = useModal(close, { labelledBy: "new-test-title" });
 
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -592,19 +599,24 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate, currentUser
         author: form.author.trim(),
         tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
         auto: form.type === "automated",
-        status: "pending",
+        status: form.status,
         custom_fields: customFields,
       };
-      const res = await fetch("/api/tests", {
-        method: "POST",
+      if (test) {
+        delete payload.id; delete payload.auto_id; delete payload.project_id;
+        payload.revision = test.revision;
+      }
+      const res = await fetch(test ? "/api/tests/" + encodeURIComponent(test.id) : "/api/tests", {
+        method: test ? "PATCH" : "POST",
         headers: { ...window.authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.detail || t("cases.library.createFailed"));
+        if (test && res.status === 409) setConflict(true);
+        throw new Error(res.status === 409 && test ? t("editor.conflict") : data.detail || t("cases.library.createFailed"));
       }
-      onCreate();
+      onCreate(await res.json(), folderOptions);
       onClose();
     } catch (e) {
       setErr(e.message);
@@ -616,23 +628,24 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate, currentUser
     <div style={{position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center"}} {...modal.overlayProps}>
       <div style={{background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, padding:24, width:480, maxWidth:"calc(100vw - 32px)", maxHeight:"80vh", overflowY:"auto"}} {...modal.dialogProps}>
         <div style={{display:"flex", alignItems:"center", marginBottom:20}}>
-          <h2 id="new-test-title" style={{fontSize:15, fontWeight:600, margin:0}}>{t("cases.library.suggestTitle")}</h2>
-          <button className="btn ghost icon sm" style={{marginLeft:"auto"}} onClick={onClose} aria-label={t("cases.library.close")}><Icon name="x" /></button>
+          <h2 id="new-test-title" style={{fontSize:15, fontWeight:600, margin:0}}>{t(test ? "editor.editCase" : "cases.library.suggestTitle")}</h2>
+          <button className="btn ghost icon sm" style={{marginLeft:"auto"}} disabled={saving} onClick={close} aria-label={t("cases.library.close")}><Icon name="x" /></button>
         </div>
 
         <div style={{display:"flex", flexDirection:"column", gap:14}}>
-          <label style={{display:"flex", alignItems:"center", gap:8, fontSize:13}}>
+          <div className="dim">{t("editor.project")}: <strong>{window.TH_PROJECT?.name || test?.project_id}</strong></div>
+          {!test && <label style={{display:"flex", alignItems:"center", gap:8, fontSize:13}}>
             <input type="checkbox" checked={autoId} disabled={saving} onChange={e => { setAutoId(e.target.checked); setErr(null); }} />
             {t("cases.library.autoId")}
-          </label>
-          <FormField label={t(autoId ? "cases.library.id" : "cases.library.idRequiredLabel")} hint={autoId ? null : t("cases.library.egId")}>
-            <input id="new-test-id" className="input" value={autoId ? "" : form.id} disabled={autoId || saving} onChange={e => setF("id", e.target.value)} placeholder={autoId ? "TC-…" : "TC-2400"} />
+          </label>}
+          <FormField label={t(autoId || test ? "cases.library.id" : "cases.library.idRequiredLabel")} hint={autoId || test ? null : t("cases.library.egId")}>
+            <input id="new-test-id" className="input" value={autoId ? "" : form.id} disabled={!!test || autoId || saving} onChange={e => setF("id", e.target.value)} placeholder={autoId ? "TC-…" : "TC-2400"} />
           </FormField>
           <FormField label={t("cases.library.titleRequiredLabel")}>
-            <input className="input" value={form.title} onChange={e => setF("title", e.target.value)} placeholder={t("cases.library.titlePlaceholder")} />
+            <input className="input" aria-label={t("editor.title")} value={form.title} onChange={e => setF("title", e.target.value)} placeholder={t("cases.library.titlePlaceholder")} />
           </FormField>
           <FormField label={t("cases.library.folder")}>
-            <select className="input" value={form.folder_id} onChange={e => setF("folder_id", e.target.value)}>
+            <select className="input" aria-label={t("editor.folder_id")} value={form.folder_id} onChange={e => setF("folder_id", e.target.value)}>
               <option value="">{t("cases.library.none")}</option>
               {folderOptions.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
@@ -665,18 +678,30 @@ function NewTestModal({ folders, defaultFolderId, onClose, onCreate, currentUser
           <FormField label={t("editor.author")}>
             <input className="input" aria-label={t("editor.author")} value={form.author} onChange={e => setF("author", e.target.value)} />
           </FormField>
+          {test && <FormField label={t("editor.status")}>
+            <select className="input" aria-label={t("editor.status")} value={form.status} onChange={e => setF("status", e.target.value)}>
+              {["pending", "pass", "fail", "skip", "blocked"].map(value => <option key={value} value={value}>{t("execution.overview.status" + value[0].toUpperCase() + value.slice(1))}</option>)}
+            </select>
+          </FormField>}
           <FormField label={t("cases.library.tags")} hint={t("cases.library.tagsHint")}>
-            <input className="input" value={form.tags} onChange={e => setF("tags", e.target.value)} placeholder={t("cases.library.tagsPlaceholder")} />
+            <input className="input" aria-label={t("editor.tags")} value={form.tags} onChange={e => setF("tags", e.target.value)} placeholder={t("cases.library.tagsPlaceholder")} />
           </FormField>
           <CustomFieldsInputs defs={cfDefs} values={customFields} onChange={setCustomFields} />
         </div>
 
-        {err && <div style={{color:"var(--fail)", fontSize:12, marginTop:12}}>{err}</div>}
+        {err && <div role="alert" style={{color:"var(--fail)", fontSize:12, marginTop:12}}>{err}</div>}
+        {conflict && <button className="btn" disabled={saving} onClick={async () => {
+          if (!confirm(t("editor.reloadConfirm"))) return;
+          setSaving(true);
+          try { onCreate(await workspaceRequest("/tests/" + encodeURIComponent(test.id))); onClose(); }
+          catch (e) { setErr(e.message); }
+          finally { setSaving(false); }
+        }}>{t("editor.reload")}</button>}
 
         <div style={{display:"flex", gap:8, marginTop:20, justifyContent:"flex-end"}}>
-          <button className="btn" onClick={onClose}>{t("cases.library.cancel")}</button>
-          <button className="btn accent" onClick={submit} disabled={saving || (!autoId && !form.id.trim()) || !form.title.trim()}>
-            {saving ? t("cases.library.creating") : t("cases.library.createTest")}
+          <button className="btn" disabled={saving} onClick={close}>{t("cases.library.cancel")}</button>
+          <button className="btn accent" onClick={submit} disabled={saving || conflict || (!autoId && !form.id.trim()) || !form.title.trim()}>
+            {saving ? t("common.saving") : t(test ? "common.save" : "cases.library.createTest")}
           </button>
         </div>
       </div>
@@ -714,4 +739,5 @@ function ConfirmDialog({ title, body, onConfirm, onCancel }) {
 }
 
 window.Library = Library;
+window.NewTestModal = NewTestModal;
 window.ConfirmDialog = ConfirmDialog;

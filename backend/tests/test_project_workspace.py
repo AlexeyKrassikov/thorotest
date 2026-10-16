@@ -12,7 +12,13 @@ def test_projects_are_private_and_membership_controls_case_writes(client, db):
     case = client.post("/api/tests", json={"id": "PRIVATE", "title": "Private", "project_id": "two"})
     assert case.status_code == 201
     assert client.put(f"/api/projects/one/members/{user.id}", json={"role": "editor"}).status_code == 200
+    members = client.get("/api/projects/one/members").json()
+    collaborator = next(m for m in members if m["user_id"] == user.id)
+    assert collaborator["email"] == "collaborator@example.test"
+    assert "display_name" in collaborator
+    assert "hashed_password" not in collaborator
     client.headers["Authorization"] = f"Bearer {create_access_token(user.id)}"
+    assert client.get("/api/projects/one/members").status_code == 403
     assert [p["id"] for p in client.get("/api/projects").json()] == ["one"]
     assert client.get("/api/tests/PRIVATE").status_code == 404
     assert client.get("/api/tests/PRIVATE/steps").status_code == 404

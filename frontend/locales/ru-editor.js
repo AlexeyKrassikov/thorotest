@@ -1,6 +1,8 @@
 window.TH_LOCALES.ru.editor = {
   project: "Проект", chooseProject: "Выберите проект", manageProjects: "Управление проектами",
+  edit: "Изменить",
   collaborators: "Участники", collaborator: "Выберите пользователя", role: "Роль",
+  noMembers: "Участников нет", saveContentFirst: "Сначала сохраните описание и шаги, затем измените атрибуты.", folderProject: "Проект папки",
   owner: "Владелец", editor: "Редактор", viewer: "Наблюдатель", addMember: "Добавить участника",
   removeMember: "Удалить участника", removeMemberConfirm: "Отозвать доступ этого участника?",
   author: "Автор", newFolder: "Название новой папки", createFolder: "Создать папку",
